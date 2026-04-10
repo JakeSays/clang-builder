@@ -9,6 +9,8 @@
         <RootNamespace>Std.BuildTools.Clang</RootNamespace>
 
         <NoWarn>CA1416</NoWarn>
+
+        <AssemblyName>clang-builder</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>
