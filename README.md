@@ -23,26 +23,21 @@ The host toolchain (clang, lld, lldb, llvm-\*) is fully statically linked agains
 
 The toolchain is built using **ToolchainTools**, a .NET 10 CLI application in the `ToolchainTools/` directory.
 
+A pre-built binary is included at `prebuilts/clang-builder` for use without a .NET installation.
+
 ### Prerequisites
 
 ```bash
 sudo apt-get install -y cmake ninja-build git python3 curl xz-utils patchelf \
-  qemu-user qemu-user-static dotnet-sdk-10.0
+  qemu-user qemu-user-static
 ```
 
 QEMU is used to run cross-compiled test binaries on the build machine.
 
-### Build ToolchainTools
-
-```bash
-dotnet publish -c Release -r linux-x64 -o ./out/toolchain-tools \
-  ToolchainTools/ToolchainTools.csproj
-```
-
 ### Run the build
 
 ```bash
-./out/toolchain-tools/ToolchainTools build \
+./prebuilts/clang-builder build \
   --llvm-version 22.1.2 \
   --all \
   --prebuilts-dir ./prebuilts \
@@ -54,6 +49,15 @@ dotnet publish -c Release -r linux-x64 -o ./out/toolchain-tools \
 ```
 
 All prebuilts (bootstrap compiler and cross sysroots) are read from `--prebuilts-dir` and stored in Git LFS.
+
+### Building ToolchainTools from source
+
+If you need to rebuild the tool itself, install the [.NET 10 SDK](https://dotnet.microsoft.com/download) and run:
+
+```bash
+dotnet publish -c Release -r linux-x64 -o ./out/toolchain-tools \
+  ToolchainTools/ToolchainTools.csproj
+```
 
 ### Options
 
