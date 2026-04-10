@@ -1,0 +1,85 @@
+name: Build Clang Toolchain
+
+on:
+  workflow_dispatch:
+    inputs:
+      llvm_version:
+        description: 'LLVM version to build (e.g. 22.1.2)'
+        required: true
+        default: '22.1.2'
+  workflow_call:
+    inputs:
+      llvm_version:
+        description: 'LLVM version to build'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    permissions:
+      contents: write   # required to create GitHub releases
+
+    env:
+      LLVM_VERSION: ${{ inputs.llvm_version }}
+      JOBS: 4   # GitHub Actions runners have 4 cores
+
+    steps:
+
+    # -------------------------------------------------------------------------
+    # 1. Checkout repo (includes prebuilts/ stored in Git LFS)
+    # -------------------------------------------------------------------------
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    # -------------------------------------------------------------------------
+    # 2. Install host build dependencies
+    # -------------------------------------------------------------------------
+    - name: Install host dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+          cmake ninja-build git python3 curl xz-utils patchelf \
+          qemu-user qemu-user-static dotnet-sdk-10.0
+
+    # -------------------------------------------------------------------------
+    # 3. Build ToolchainTools
+    # -------------------------------------------------------------------------
+    - name: Build ToolchainTools
+      run: |
+        dotnet publish -c Release --no-self-contained \
+          -r linux-x64 \
+          -o "$RUNNER_TEMP/toolchain-tools" \
+          ToolchainTools/ToolchainTools.csproj
+
+    # -------------------------------------------------------------------------
+    # 4. Build toolchain (all targets, with tests and packaging)
+    # -------------------------------------------------------------------------
+    - name: Build toolchain
+      run: |
+        "$RUNNER_TEMP/toolchain-tools/ToolchainTools" build \
+          --llvm-version "${LLVM_VERSION}" \
+          --all \
+          --prebuilts-dir "${{ github.workspace }}/prebuilts" \
+          --work-dir      "$RUNNER_TEMP/toolchain-work" \
+          --output-dir    "${{ github.workspace }}" \
+          --jobs          "${JOBS}" \
+          --run-tests \
+          --package \
+          --keep-work-dir
+
+    # -------------------------------------------------------------------------
+    # 5. Publish GitHub release
+    # -------------------------------------------------------------------------
+    - name: Create GitHub release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release create "clang-${LLVM_VERSION}" \
+          --title "Clang ${LLVM_VERSION} Linux x86_64" \
+          --notes "Clang/LLD/LLDB ${LLVM_VERSION} cross-compilation toolchain for Linux x86_64." \
+          "clang-${LLVM_VERSION}-linux-x86_64.tar.zst"

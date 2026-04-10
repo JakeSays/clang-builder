@@ -1,0 +1,64 @@
+name: Check for New Clang Release
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # daily at 06:00 UTC
+  workflow_dispatch:       # allow manual runs
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # to commit current-clang-version.txt
+      actions: write    # to trigger build-clang-toolchain.yml
+
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      should_build: ${{ steps.resolve.outputs.should_build }}
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Resolve version
+      id: resolve
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        # Fetch the latest LLVM release tag (format: llvmorg-X.Y.Z)
+        LATEST_TAG=$(gh api repos/llvm/llvm-project/releases/latest --jq '.tag_name')
+        VERSION="${LATEST_TAG#llvmorg-}"
+        echo "Latest LLVM release: ${VERSION}"
+
+        # Check if we already have a release tag for this version
+        if gh release view "clang-${VERSION}" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+          echo "Release clang-${VERSION} already exists — nothing to do."
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "should_build=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "No release found for clang-${VERSION} — triggering build."
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "should_build=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Update current-clang-version.txt
+      if: steps.resolve.outputs.should_build == 'true'
+      run: |
+        VERSION="${{ steps.resolve.outputs.version }}"
+        echo "${VERSION}" > current-clang-version.txt
+        git config user.name  "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add current-clang-version.txt
+        git diff --cached --quiet || git commit -m "chore: update clang version to ${VERSION}"
+        git push
+
+    - name: Trigger build
+      if: steps.resolve.outputs.should_build == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh workflow run build-clang-toolchain.yml \
+          --ref "${{ github.ref_name }}" \
+          --field "llvm_version=${{ steps.resolve.outputs.version }}"
