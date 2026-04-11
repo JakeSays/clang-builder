@@ -61,7 +61,7 @@ jobs:
     # -------------------------------------------------------------------------
     - name: Build toolchain
       run: |
-        "$RUNNER_TEMP/toolchain-tools/ToolchainTools" build \
+        "$RUNNER_TEMP/toolchain-tools/clang-builder" build \
           --llvm-version "${LLVM_VERSION}" \
           --all \
           --prebuilts-dir "${{ github.workspace }}/prebuilts" \
