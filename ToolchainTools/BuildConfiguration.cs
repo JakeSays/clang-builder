@@ -33,21 +33,23 @@ public class BuildConfiguration
     public FilePath? X86MuslSysroot { get; init; }
     public PythonInfo? Python { get; set; }
 
-    private string _clangVersion = "";
     public string ClangVersion
     {
-        get => _clangVersion;
+        get;
         set
         {
-            _clangVersion = value;
+            field = value;
             ClangVersionMajor = value.Split('.')[0];
             ClangResourceDir = InstallDir / "lib" / "clang" / ClangVersionMajor;
         }
-    }
+    } = "";
+
     public string ClangVersionMajor { get; private set; } = "";
     public FilePath ClangResourceDir { get; private set; }
 
     public FilePath InstallDir => _installDir ??= WorkDir / $"clang-{LlvmVersion}-linux-x86_64";
+
+    public FilePath CmakeToolchainsDir => PrebuiltsDir.Parent / "cmake";
 
     public FilePath SourceDir => _srcDir ??= WorkDir / "llvm-src";
 
