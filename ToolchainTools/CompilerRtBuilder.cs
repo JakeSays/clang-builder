@@ -70,28 +70,23 @@ public class CompilerRtBuilder
 
 //        var normalizedTriple = _config.NormalizedTriples[_target.CmakeTriple];
 
-        var flags = new ArgBuilder();
-        flags
+        var cFlags = new ArgBuilder()
             .Target(_target.Triple)
             .Text(_target.ExtraFlags)
-            .ColorAlways();
-        if (isPic)
-        {
-            flags.Pic();
-        }
+            .Sysroot(_target.Sysroot)
+            .ColorAlways()
+            .PicIf(isPic)
+            .Build();
 
-        var cFlags = flags.Build();
-
-        flags
+        var ldFlags = new ArgBuilder()
             .Target(_target.Triple)
             .Text(_target.ExtraFlags)
             .Sysroot(_target.Sysroot)
             .LibPath(_target.Sysroot / "usr" / "lib" / _target.GnuTriple)
             .LibPath(_target.Sysroot / "lib")
             .LibPath(_target.Sysroot / "usr" / "lib")
-            .UseLd("lld");
-
-        var ldFlags = flags.Build();
+            .UseLd("lld")
+            .Build();
 
         var configureArgs = GetCommonCmakeArgs(buildDir, cFlags, ldFlags);
         configureArgs
@@ -176,9 +171,10 @@ public class CompilerRtBuilder
         // Use our installed libc++ headers directly — cross sysroots have no C++ headers,
         // and using --gcc-toolchain causes cmake to inject -lstdc++. This matches the
         // approach in build-compiler-rt.sh.
-        var flags = new ArgBuilder()
+        var cFlags = new ArgBuilder()
             .Target(_target.Triple)
             .Text(_target.ExtraFlags)
+            .Sysroot(_target.Sysroot)
             .ColorAlways()
             .ISystem(libCxxPrefix / "include" / normalizedTriple / "c++" / "v1")
             .ISystem(libCxxPrefix / "include" / "c++" / "v1")
@@ -186,11 +182,10 @@ public class CompilerRtBuilder
             // sanitizer_linux.cpp uses struct stat64 unconditionally.
             .DefineIf(_target.IsMusl, "_LARGEFILE64_SOURCE")
             // musl has no rune table; libc++ falls back to its built-in one with this define.
-            .DefineIf(_target.IsMusl, "_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE");
+            .DefineIf(_target.IsMusl, "_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE")
+            .Build();
 
-        var cFlags = flags.Build();
-
-        flags
+        var ldFlagsBuilder = new ArgBuilder()
             .Target(_target.Triple)
             .Text(_target.ExtraFlags)
             .Sysroot(_target.Sysroot)
@@ -204,12 +199,12 @@ public class CompilerRtBuilder
 
         if (_target.IsMusl)
         {
-            flags.LibPath(cxxLibDir)
+            ldFlagsBuilder.LibPath(cxxLibDir)
                 .StdLib("libc++");
         }
-        flags.NoStdLibCxx();
+        ldFlagsBuilder.NoStdLibCxx();
 
-        var ldFlags = flags.Build();
+        var ldFlags = ldFlagsBuilder.Build();
 
         var configureArgs = GetCommonCmakeArgs(buildDir, cFlags, ldFlags);
         configureArgs
