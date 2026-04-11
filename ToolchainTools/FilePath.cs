@@ -216,6 +216,9 @@ public struct FilePath : IEquatable<FilePath>
     /// <summary>Returns the path as a double-quoted string.</summary>
     public readonly string AsQuotedPath() => $"\"{Path}\"";
 
+    /// <summary>Gets the parent directory of this path.</summary>
+    public readonly FilePath Parent => new(SysPath.GetDirectoryName(Path.TrimEnd('/'))!);
+
     /// <summary>Gets a value indicating whether the path exists as a file or directory on disk.</summary>
     public readonly bool Exists => File.Exists(Path) || Directory.Exists(Path);
 

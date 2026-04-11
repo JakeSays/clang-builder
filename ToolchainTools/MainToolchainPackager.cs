@@ -10,6 +10,28 @@ public class MainToolchainPackager : ToolchainPackager
         _config = config;
     }
 
+    private bool CopyCmakeToolchains()
+    {
+        var sourceDir = _config.CmakeToolchainsDir;
+        if (!sourceDir.Exists)
+        {
+            Log.Error($"ERROR: cmake toolchains directory not found at '{sourceDir}'.");
+            return false;
+        }
+
+        var destDir = _config.InstallDir / "cmake";
+        Directory.CreateDirectory(destDir);
+
+        foreach (var file in Directory.GetFiles(sourceDir, "*.cmake"))
+        {
+            var dest = destDir / Path.GetFileName(file);
+            File.Copy(file, dest, overwrite: true);
+        }
+
+        Log.Info($"Copied cmake toolchain files to {destDir}.");
+        return true;
+    }
+
     public async Task<bool> Package()
     {
         var baseFileName = $"clang-{_config.LlvmVersion}-linux-x86_64";
@@ -22,6 +44,11 @@ public class MainToolchainPackager : ToolchainPackager
         if (!PatchLlvmConfig(_config.InstallDir, "main"))
         {
             Log.Error("ERROR: Failed to patch main toolchain LLVMConfig.cmake.");
+            return false;
+        }
+
+        if (!CopyCmakeToolchains())
+        {
             return false;
         }
 
