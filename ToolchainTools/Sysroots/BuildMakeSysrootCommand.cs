@@ -1,19 +1,22 @@
-using Spectre.Console.Cli;
-
 namespace Std.BuildTools.Clang;
 
-public sealed class BuildMakeSysrootCommand : AsyncCommand<MakeSysrootSettings>
+public static class BuildMakeSysrootCommand
 {
-    public override async Task<int> ExecuteAsync(CommandContext context, MakeSysrootSettings settings)
+    public static async Task<int> Execute(string[] args)
     {
-        var outputDir = new FilePath(Path.GetFullPath(settings.OutputDir));
-        var workDir = new FilePath(Path.GetFullPath(settings.WorkDir));
+        if (!CommandLineParser.ParseSysroot(args, out var sysrootArgs))
+        {
+            return 1;
+        }
+
+        var outputDir = new FilePath(sysrootArgs.OutputDir);
+        var workDir = new FilePath(sysrootArgs.WorkDir);
         Directory.CreateDirectory(outputDir);
         Directory.CreateDirectory(workDir);
 
         Log.Initialize(workDir);
 
-        if (settings.Host)
+        if (sysrootArgs.Host)
         {
             var hostWorkDir = workDir / "musl-host";
             if (hostWorkDir.Exists)
@@ -28,9 +31,9 @@ public sealed class BuildMakeSysrootCommand : AsyncCommand<MakeSysrootSettings>
                 outputPath,
                 apkArch: "x86_64",
                 buildPython: true,
-                pyVersion: settings.PyVersion,
-                keepWorkDir: settings.KeepWorkDir,
-                noPackage: settings.NoPackage);
+                pyVersion: sysrootArgs.PyVersion,
+                keepWorkDir: sysrootArgs.KeepWorkDir,
+                noPackage: sysrootArgs.NoPackage);
 
             if (!await builder.Build())
             {
@@ -38,11 +41,11 @@ public sealed class BuildMakeSysrootCommand : AsyncCommand<MakeSysrootSettings>
             }
         }
 
-        if (settings.HostX64)
+        if (sysrootArgs.HostX64)
         {
             var archConfig = SysrootArchConfigs.All["host-x64"];
-            var suite = settings.Release ?? archConfig.Suite;
-            var packages = settings.Packages ?? archConfig.DefaultPackages;
+            var suite = sysrootArgs.Release ?? archConfig.Suite;
+            var packages = sysrootArgs.Packages ?? archConfig.DefaultPackages;
 
             var builder = new SysrootBuilder(workDir, outputDir, "host-x64", archConfig with { Suite = suite }, packages, "sysroot-x64-glibc-host.tar.xz");
             if (!await builder.Build())
@@ -51,13 +54,13 @@ public sealed class BuildMakeSysrootCommand : AsyncCommand<MakeSysrootSettings>
             }
         }
 
-        if (settings.Glibc)
+        if (sysrootArgs.Glibc)
         {
-            foreach (var arch in settings.SelectedGlibcArchs)
+            foreach (var arch in sysrootArgs.SelectedGlibcArchs)
             {
                 var archConfig = SysrootArchConfigs.All[arch];
-                var suite = settings.Release ?? archConfig.Suite;
-                var packages = settings.Packages ?? archConfig.DefaultPackages;
+                var suite = sysrootArgs.Release ?? archConfig.Suite;
+                var packages = sysrootArgs.Packages ?? archConfig.DefaultPackages;
 
                 var builder = new SysrootBuilder(workDir, outputDir, arch, archConfig with { Suite = suite }, packages, $"sysroot-{arch}-glibc-cross.tar.xz");
                 if (!await builder.Build())
@@ -67,9 +70,9 @@ public sealed class BuildMakeSysrootCommand : AsyncCommand<MakeSysrootSettings>
             }
         }
 
-        if (settings.Musl)
+        if (sysrootArgs.Musl)
         {
-            foreach (var arch in settings.SelectedMuslArchs)
+            foreach (var arch in sysrootArgs.SelectedMuslArchs)
             {
                 var muslWorkDir = workDir / $"musl-{arch}";
                 if (muslWorkDir.Exists)
@@ -85,9 +88,9 @@ public sealed class BuildMakeSysrootCommand : AsyncCommand<MakeSysrootSettings>
                     outputPath,
                     apkArch,
                     buildPython: false,
-                    pyVersion: settings.PyVersion,
-                    keepWorkDir: settings.KeepWorkDir,
-                    noPackage: settings.NoPackage);
+                    pyVersion: sysrootArgs.PyVersion,
+                    keepWorkDir: sysrootArgs.KeepWorkDir,
+                    noPackage: sysrootArgs.NoPackage);
 
                 if (!await builder.Build())
                 {
@@ -101,11 +104,11 @@ public sealed class BuildMakeSysrootCommand : AsyncCommand<MakeSysrootSettings>
 
     private static string ToApkArch(string arch) => arch switch
     {
-        "x64"     => "x86_64",
+        "x64" => "x86_64",
         "aarch64" => "aarch64",
-        "armv7"   => "armv7",
+        "armv7" => "armv7",
         "riscv64" => "riscv64",
-        "x86"     => "x86",
+        "x86" => "x86",
         _ => throw new ArgumentOutOfRangeException(nameof(arch), arch, null)
     };
 }

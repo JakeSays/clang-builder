@@ -18,9 +18,14 @@ public class BuildConfiguration
     public required bool RunTests { get; init; }
     public required int PackageThreads { get; init; }
     public required FilePath PrebuiltsDir { get; init; }
-    public required FilePath BootstrapClangDir { get; init; }
-    public required FilePath HostSysroot { get; init; }
+    public required FilePath PrebuiltsSourceDir { get; init; }
+    public FilePath BootstrapClangDir { get; set; }
+    public FilePath HostSysroot { get; set; }
     public required FilePath CmakeModulesDir { get; init; }
+    public bool KeepWorkDir { get; init; }
+    public bool Package { get; init; }
+    public bool RunTestsOnly { get; init; }
+    public TargetArch? TestArch { get; init; }
     public FilePath? X64Sysroot { get; init; }
     public FilePath? X64MuslSysroot { get; init; }
     public FilePath? Armv7Sysroot { get; init; }
@@ -49,7 +54,7 @@ public class BuildConfiguration
 
     public FilePath InstallDir => _installDir ??= WorkDir / $"clang-{LlvmVersion}-linux-x86_64";
 
-    public FilePath CmakeToolchainsDir => PrebuiltsDir.Parent / "cmake";
+    public FilePath CmakeToolchainsDir => PrebuiltsSourceDir / "cmake";
 
     public FilePath SourceDir => _srcDir ??= WorkDir / "llvm-src";
 

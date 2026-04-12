@@ -54,6 +54,8 @@ public class MainToolchainPackager : ToolchainPackager
 
         CreateConvenienceSymlinks(_config.InstallDir);
 
+        Directory.CreateDirectory(_config.OutputDir);
+
         var threads = _config.PackageThreads > 0 ? _config.PackageThreads : 0;
         var args = new ArgBuilder()
             .Dash("I", $"zstd -19 -T{threads}", Quoted.Yes)

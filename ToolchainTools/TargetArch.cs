@@ -8,7 +8,8 @@ public enum TargetArch
     Armv7 = 2,
     Aarch64 = 4,
     Riscv64 = 8,
-    X86 = 16
+    X86 = 16,
+    All = X64 | Armv7 | Aarch64 | Riscv64 | X86
 }
 
 public static class TargetArchExtensions
@@ -31,6 +32,8 @@ public static class TargetArchExtensions
             return (value & flag) != 0;
         }
 
+        public TargetArch Set(TargetArch flag) => value | flag;
+
         public TargetArch AddIf(bool condition, TargetArch arg)
         {
             return condition
@@ -51,5 +54,10 @@ public static class TargetArchExtensions
                 ? value
                 : TargetArch.None;
         }
+    }
+
+    extension(TargetArch)
+    {
+        public static TargetArch operator |(TargetArch left, TargetArch right) => left | right;
     }
 }

@@ -1,14 +1,17 @@
-using Spectre.Console.Cli;
-
 namespace Std.BuildTools.Clang;
 
-public sealed class BuildBootstrapToolchainCommand : AsyncCommand<BootstrapBuildSettings>
+public static class BuildBootstrapToolchainCommand
 {
-    public override async Task<int> ExecuteAsync(CommandContext context, BootstrapBuildSettings settings)
+    public static async Task<int> Execute(string[] args)
     {
-        var workDir = new FilePath(settings.WorkDir!);
-        var outputDir = Path.GetFullPath(settings.OutputDir);
-        var prebuiltsSourceDir = Path.GetFullPath(settings.PrebuiltsDir);
+        if (!CommandLineParser.ParseBootstrap(args, out var bootstrapArgs))
+        {
+            return 1;
+        }
+
+        var workDir = new FilePath(bootstrapArgs.WorkDir);
+        var outputDir = bootstrapArgs.OutputDir;
+        var prebuiltsSourceDir = new FilePath(bootstrapArgs.PrebuiltsDir);
         var prebuiltsOutputDir = workDir / "prebuilts";
 
         Log.Info(LogColor.Green, $"Work directory: {workDir}");
@@ -18,7 +21,7 @@ public sealed class BuildBootstrapToolchainCommand : AsyncCommand<BootstrapBuild
         try
         {
             using var downloader = new FileDownloader();
-            var prepper = new BootstrapBuildPrepper(settings, downloader, workDir, prebuiltsSourceDir, prebuiltsOutputDir);
+            var prepper = new BootstrapBuildPrepper(bootstrapArgs, downloader, workDir, prebuiltsSourceDir, prebuiltsOutputDir);
 
             var paths = await prepper.Prepare();
             if (paths == null)
@@ -37,15 +40,15 @@ public sealed class BuildBootstrapToolchainCommand : AsyncCommand<BootstrapBuild
 
             // Build
             var builder = new BootstrapBuilder(
-                llvmVersion: settings.LlvmVersion,
+                llvmVersion: bootstrapArgs.LlvmVersion,
                 llvmSrcDir: paths.SrcDir,
                 buildDir: paths.BuildDir,
                 installDir: paths.InstallDir,
                 hostSysroot: paths.HostSysrootPath,
-                jobs: settings.Jobs > 0
-                    ? settings.Jobs
+                jobs: bootstrapArgs.Jobs > 0
+                    ? bootstrapArgs.Jobs
                     : Environment.ProcessorCount,
-                forceReconfigure: settings.ForceReconfigure);
+                forceReconfigure: bootstrapArgs.ForceReconfigure);
 
             if (!await builder.Build())
             {
@@ -54,33 +57,34 @@ public sealed class BuildBootstrapToolchainCommand : AsyncCommand<BootstrapBuild
             }
 
             // Move install dir to a stage directory with the versioned name for trimming
-            var stageDir = Path.Combine(Path.GetDirectoryName(paths.InstallDir)!, $"clang{settings.LlvmVersion}");
+            var stageDir = Path.Combine(Path.GetDirectoryName(paths.InstallDir)!, $"clang{bootstrapArgs.LlvmVersion}");
             FileUtils.DeleteDirectory(stageDir);
             Directory.Move(paths.InstallDir, stageDir);
 
             // Trim the installed toolchain
-            var packager = new BootstrapPackager(stageDir, outputDir, settings.LlvmVersion, paths.HostSysrootPath);
+            var packager = new BootstrapPackager(stageDir, outputDir, bootstrapArgs.LlvmVersion, paths.HostSysrootPath);
             Log.Info(LogColor.Green, "Trimming bootstrap Clang for testing and packaging...");
             packager.Trim(stageDir);
             Log.Info(LogColor.Green, "Trimming complete.");
 
-            if (settings.RunTests)
+            if (bootstrapArgs.RunTests)
             {
                 Log.Info(LogColor.Cyan, "Running bootstrap toolchain tests...");
                 var config = new BuildConfiguration
                 {
                     Architectures = TargetArch.X64,
-                    LlvmVersion = settings.LlvmVersion,
+                    LlvmVersion = bootstrapArgs.LlvmVersion,
                     WorkDir = workDir,
-                    OutputDir = settings.OutputDir,
+                    OutputDir = outputDir,
                     PrebuiltsDir = prebuiltsOutputDir,
-                    Jobs = settings.Jobs > 0 ? settings.Jobs : Environment.ProcessorCount,
-                    ForceReconfigure = settings.ForceReconfigure,
-                    RunTests = settings.RunTests,
+                    PrebuiltsSourceDir = prebuiltsSourceDir,
+                    Jobs = bootstrapArgs.Jobs > 0 ? bootstrapArgs.Jobs : Environment.ProcessorCount,
+                    ForceReconfigure = bootstrapArgs.ForceReconfigure,
+                    RunTests = bootstrapArgs.RunTests,
                     BuildTargets = BuildTargets.All,
-                    BootstrapClangDir = stageDir, // The newly trimmed bootstrap clang is the "toolchain" to test
+                    BootstrapClangDir = stageDir,
                     HostSysroot = paths.HostSysrootPath,
-                    CmakeModulesDir = "", // Not needed for this test
+                    CmakeModulesDir = workDir / "cmake-modules",
                     PackageThreads = 0
                 };
 
@@ -92,7 +96,7 @@ public sealed class BuildBootstrapToolchainCommand : AsyncCommand<BootstrapBuild
                 }
             }
 
-            if (settings.BuildOnly)
+            if (bootstrapArgs.BuildOnly)
             {
                 Log.Info(LogColor.Green, $"--build-only specified. Bootstrap Clang installed at: {paths.InstallDir}");
                 return 0;
@@ -105,7 +109,7 @@ public sealed class BuildBootstrapToolchainCommand : AsyncCommand<BootstrapBuild
         }
         finally
         {
-            if (!settings.KeepWorkDir)
+            if (!bootstrapArgs.KeepWorkDir)
             {
                 Log.Warning($"Cleaning up work directory: {workDir}");
                 FileUtils.DeleteDirectory(workDir);
