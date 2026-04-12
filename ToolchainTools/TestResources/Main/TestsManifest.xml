@@ -1,45 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Tests>
     <Test FileName="cpp17-01-constexpr.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp17-02-structured-bindings.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp17-03-variant-any.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp17-04-algorithms.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp17-05-filesystem.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp20-01-concepts.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp20-02-ranges.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp20-03-coroutines.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp20-04-format-span.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp20-05-spaceship.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp20-06-jthread.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp20-07-consteval.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp23-01-variant-any.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
     <Test FileName="cpp23-02-ranges-fold.cpp">
-        <Skip Arch="x32" Libc="glibc" Type="static" Reason="tetra float not supported by Clang on X86"/>
+        <Skip Arch="x32" Libc="glibc" Type="static" Reason="Uses compiler-rt features not supported on X86"/>
     </Test>
 </Tests>

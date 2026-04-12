@@ -9,17 +9,17 @@ public record BootstrapBuildPaths(
 
 public class BootstrapBuildPrepper : BuildPrepper
 {
-    private readonly BootstrapBuildSettings _settings;
+    private readonly BootstrapArgs _args;
 
     public BootstrapBuildPrepper(
-        BootstrapBuildSettings settings,
+        BootstrapArgs args,
         FileDownloader downloader,
         FilePath workDir,
         FilePath prebuiltsSourceDir,
         FilePath prebuiltsOutputDir)
-        : base(downloader, workDir, prebuiltsSourceDir, prebuiltsOutputDir, settings.KeepWorkDir)
+        : base(downloader, workDir, prebuiltsSourceDir, prebuiltsOutputDir, args.KeepWorkDir)
     {
-        _settings = settings;
+        _args = args;
     }
 
     public async Task<BootstrapBuildPaths?> Prepare()
@@ -37,15 +37,16 @@ public class BootstrapBuildPrepper : BuildPrepper
             return null;
         }
 
+        PrebuiltsUtilities.Initialize(WorkDir);
         if (!await PrebuiltsUtilities.ExpandPrebuilts(PrebuiltsSourceDir, WorkDir, Downloader, PrebuiltType.HostSysroot))
         {
             return null;
         }
 
         var hostSysrootPath = PrebuiltsUtilities.GetPrebuiltPath(PrebuiltType.HostSysroot)!;
-        var srcDir = _settings.SrcDir ?? Path.Combine(WorkDir, "llvm-src");
+        var srcDir = _args.SrcDir ?? Path.Combine(WorkDir, "llvm-src");
 
-        if (!await FetchLlvmSource(_settings.LlvmVersion, srcDir))
+        if (!await FetchLlvmSource(_args.LlvmVersion, srcDir))
         {
             return null;
         }

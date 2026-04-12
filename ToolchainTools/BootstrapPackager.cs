@@ -62,7 +62,7 @@ public class BootstrapPackager : ToolchainPackager
             binMatcher.AddIncludePatterns(new[]
             {
                 // Compilers
-                "clang", "clang++", "clang-[0-9]*",
+                "clang", "clang++", "clang-*",
                 // Linkers — only the ELF linker is needed; MachO/COFF/Wasm are not
                 "lld", "ld.lld",
             });

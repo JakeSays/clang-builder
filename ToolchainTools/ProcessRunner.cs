@@ -10,7 +10,7 @@ internal static class ProcessRunner
         string arguments,
         string? workingDirectory = null)
     {
-        Log.Info(LogColor.Cyan, $"Executing: {fileName} {arguments}");
+        Log.Info(LogColor.DarkGray, $"Executing: {fileName} {arguments}");
 
         var process = new Process
         {

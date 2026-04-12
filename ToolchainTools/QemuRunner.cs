@@ -1,5 +1,3 @@
-using Spectre.Console;
-
 namespace Std.BuildTools.Clang;
 
 public static class QemuRunner

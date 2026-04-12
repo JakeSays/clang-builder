@@ -22,6 +22,11 @@ internal static class StringExtensions
         public bool HasValue => !string.IsNullOrWhiteSpace(value);
 
         public bool HasNoValue => string.IsNullOrWhiteSpace(value);
+
+        public bool EqualsIgnoreCase(string rhs)
+        {
+            return string.Equals(value, rhs, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     extension(string s)

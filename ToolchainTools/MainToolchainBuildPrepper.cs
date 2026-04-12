@@ -4,24 +4,14 @@ namespace Std.BuildTools.Clang;
 
 public class MainToolchainBuildPrepper : BuildPrepper
 {
-    private readonly TargetArch _architectures;
-    private readonly MainBuildSettings _settings;
-
-    public BuildConfiguration Config { get; private set; }
+    public BuildConfiguration Config { get; }
 
     public MainToolchainBuildPrepper(
-        TargetArch architectures,
-        MainBuildSettings settings,
-        FilePath workDir,
-        FilePath prebuiltsSourceDir,
-        FilePath prebuiltsOutputDir,
+        BuildConfiguration config,
         FileDownloader? downloader = null)
-        : base(downloader, workDir, prebuiltsSourceDir, prebuiltsOutputDir, settings.KeepWorkDir)
+        : base(downloader, config.WorkDir, config.PrebuiltsSourceDir, config.PrebuiltsDir, config.KeepWorkDir)
     {
-        _architectures = architectures;
-        _settings = settings;
-
-        Config = CreateBuildConfiguration();
+        Config = config;
     }
 
     public async Task<bool> Prepare()
@@ -390,56 +380,6 @@ endif()
                 }
             }
         }
-    }
-
-    private static BuildTargets ParseBuildTargets(string? target) =>
-        target?.ToLowerInvariant() switch
-        {
-            "stage1"      => BuildTargets.Stage1,
-            "rt-glibc"    => BuildTargets.RtGlibc,
-            "rt-musl"     => BuildTargets.RtMusl,
-            "libcxx-glibc" => BuildTargets.LibcxxGlibc,
-            "libcxx-musl" => BuildTargets.LibcxxMusl,
-            "san-glibc"   => BuildTargets.SanGlibc,
-            "san-musl"    => BuildTargets.SanMusl,
-            "lldb-server" => BuildTargets.LldbServer,
-            _             => BuildTargets.All,
-        };
-
-    private BuildConfiguration CreateBuildConfiguration()
-    {
-        return new BuildConfiguration
-        {
-            Architectures = _architectures,
-            BuildTargets = ParseBuildTargets(_settings.BuildTarget),
-            LlvmVersion = _settings.LlvmVersion,
-            WorkDir = WorkDir,
-            OutputDir = _settings.OutputDir,
-            PrebuiltsDir = PrebuiltsOutputDir,
-            Jobs = _settings.Jobs > 0 ? _settings.Jobs : Environment.ProcessorCount,
-            ForceReconfigure = _settings is { RunTestsOnly: false, ForceReconfigure: true },
-            RunTests = _settings.RunTests || _settings.RunTestsOnly,
-            PackageThreads = _settings.Threads,
-            BootstrapClangDir = PrebuiltsUtilities.GetPrebuiltPath(PrebuiltType.BootstrapClang),
-            HostSysroot = PrebuiltsUtilities.GetPrebuiltPath(PrebuiltType.HostSysroot),
-            CmakeModulesDir = WorkDir / "cmake-modules",
-            X64Sysroot = MakeRoot(TargetArch.X64),
-            X64MuslSysroot = MakeRoot(TargetArch.X64, true),
-            Armv7Sysroot = MakeRoot(TargetArch.Armv7),
-            Aarch64Sysroot = MakeRoot(TargetArch.Aarch64),
-            Riscv64Sysroot = MakeRoot(TargetArch.Riscv64),
-            Armv7MuslSysroot = MakeRoot(TargetArch.Armv7, true),
-            Aarch64MuslSysroot = MakeRoot(TargetArch.Aarch64, true),
-            Riscv64MuslSysroot = MakeRoot(TargetArch.Riscv64, true),
-            X86Sysroot = MakeRoot(TargetArch.X86),
-            X86MuslSysroot = MakeRoot(TargetArch.X86, true)
-        };
-
-        FilePath? MakeRoot(TargetArch arch, bool musl = false) =>
-            _architectures.IsSet(arch)
-                ? PrebuiltsUtilities.GetSysrootDir(arch, musl)
-                : (FilePath?) null;
-
     }
 
     private bool CheckQemuDependency(string qemuBinary)
