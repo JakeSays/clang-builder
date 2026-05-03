@@ -31,18 +31,10 @@ public class LlvmCrossBuilder
                                         BuildTargets.LldbServer;
         if (bt.IsSet(postStage1))
         {
-            // If stage1 was skipped, ClangVersion hasn't been set yet — read it from the existing install.
+            // If stage1 was skipped, ClangVersion hasn't been set yet.
             if (string.IsNullOrEmpty(_config.ClangVersion))
             {
-                var llvmConfig = _config.InstallDir / "bin" / "llvm-config";
-                var (verExit, clangVersion) = await ProcessRunner.GetOutput(llvmConfig, "--version");
-                if (verExit != 0)
-                {
-                    Log.Error($"ERROR: Failed to get clang version from {llvmConfig}. Is stage1 built?");
-                    return false;
-                }
-                _config.ClangVersion = clangVersion;
-                Log.Info($"Detected installed clang version: {clangVersion}");
+                _config.ClangVersion = _config.LlvmVersion;
             }
 
             var hostClang = _config.InstallDir / "bin" / "clang";
