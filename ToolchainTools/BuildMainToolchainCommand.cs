@@ -112,24 +112,13 @@ public static class BuildMainToolchainCommand
         }
     }
 
-    private static async Task<bool> EnsureClangVersionSet(BuildConfiguration config)
+    private static Task<bool> EnsureClangVersionSet(BuildConfiguration config)
     {
-        if (!string.IsNullOrEmpty(config.ClangVersion))
+        if (string.IsNullOrEmpty(config.ClangVersion))
         {
-            return true;
+            config.ClangVersion = config.LlvmVersion;
         }
-
-        var llvmConfig = config.InstallDir / "bin" / "llvm-config";
-        var (verExit, clangVersion) = await ProcessRunner.GetOutput(llvmConfig, "--version");
-        if (verExit != 0)
-        {
-            Log.Error($"ERROR: Failed to get clang version from {llvmConfig}.");
-            return false;
-        }
-
-        config.ClangVersion = clangVersion;
-        Log.Info($"Detected installed clang version: {clangVersion}");
-        return true;
+        return Task.FromResult(true);
     }
 
     private static async Task<bool> RunAllTests(BuildConfiguration config, TargetArch? testArch)

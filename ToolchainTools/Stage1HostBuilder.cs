@@ -43,14 +43,7 @@ public class Stage1HostBuilder
             return false;
         }
 
-        var (clangVerExitCode, clangVersion) = await ProcessRunner.GetOutput(
-            _config.InstallDir / "bin" / "llvm-config", "--version");
-        if (clangVerExitCode != 0)
-        {
-            Log.Error("ERROR: Failed to get clang version from llvm-config.");
-            return false;
-        }
-        _config.ClangVersion = clangVersion;
+        _config.ClangVersion = _config.LlvmVersion;
 
         Log.Info(LogColor.Green, "Stage 1 host build complete.");
         return true;
@@ -229,6 +222,18 @@ public class Stage1HostBuilder
         if (await ProcessRunner.Run("cmake", installArgs.Build()) != 0)
         {
             Log.Error("ERROR: Install step failed.");
+            return false;
+        }
+
+        // LLVM_INSTALL_TOOLCHAIN_ONLY=ON skips llvm-config, but the per-target
+        // libcxx and compiler-rt cross builds need it via LLVM_CONFIG_PATH.
+        // Install just that component (no archives, no headers).
+        var llvmConfigInstallArgs = new ArgBuilder()
+            .DashDash("install", _hostBuildDir, Quoted.Yes)
+            .DashDash("component", "llvm-config");
+        if (await ProcessRunner.Run("cmake", llvmConfigInstallArgs.Build()) != 0)
+        {
+            Log.Error("ERROR: Failed to install llvm-config component.");
             return false;
         }
 
