@@ -42,7 +42,7 @@ jobs:
 
       - name: Build clang-builder
         run: |
-          dotnet publish -c Release --no-self-contained \
+          dotnet publish -c Release \
             -r linux-x64 \
             -o "$RUNNER_TEMP/toolchain-tools" \
             ToolchainTools/ToolchainTools.csproj
@@ -107,7 +107,7 @@ jobs:
 
       - name: Build clang-builder
         run: |
-          dotnet publish -c Release --no-self-contained \
+          dotnet publish -c Release \
             -r linux-x64 \
             -o "$RUNNER_TEMP/toolchain-tools" \
             ToolchainTools/ToolchainTools.csproj
@@ -180,7 +180,7 @@ jobs:
 
       - name: Build clang-builder
         run: |
-          dotnet publish -c Release --no-self-contained \
+          dotnet publish -c Release \
             -r linux-x64 \
             -o "$RUNNER_TEMP/toolchain-tools" \
             ToolchainTools/ToolchainTools.csproj
