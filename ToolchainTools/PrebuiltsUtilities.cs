@@ -63,6 +63,7 @@ public static class PrebuiltsUtilities
     {
         PrebuiltType.BootstrapClang => new PrebuiltInfo("bootstrap Clang", "bootstrap-clang22.1.2.tar.xz", "bootstrap-clang", TargetArch.X64),
         PrebuiltType.HostSysroot => new PrebuiltInfo("x64 musl host sysroot", "sysroot-x64-musl-host.tar.xz", "host", TargetArch.X64),
+        PrebuiltType.GlibcHostSysroot => new PrebuiltInfo("x64 glibc host sysroot", "sysroot-x64-glibc-host.tar.xz", "glibc-host", TargetArch.X64),
         PrebuiltType.X64GlibcSysroot => new PrebuiltInfo("x64 glibc cross sysroot", "sysroot-x64-glibc-cross.tar.xz", "x64", TargetArch.X64),
         PrebuiltType.X64MuslSysroot => new PrebuiltInfo("x64 musl cross sysroot", "sysroot-x64-musl-cross.tar.xz", "x64-musl", TargetArch.X64),
         PrebuiltType.Armv7GlibcSysroot => new PrebuiltInfo("armv7 glibc cross sysroot", "sysroot-armv7-glibc-cross.tar.xz", "armv7", TargetArch.Armv7),

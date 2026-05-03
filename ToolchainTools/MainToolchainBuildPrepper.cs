@@ -34,7 +34,6 @@ public class MainToolchainBuildPrepper : BuildPrepper
         {
             Log.Info("Checking for QEMU user-mode binaries for cross-arch testing...");
 
-
             if (Config.Architectures.IsSet(TargetArch.Armv7) && !CheckQemuDependency("qemu-armhf"))
             {
                 return false;
@@ -181,31 +180,61 @@ endif()
 
     private bool PatchLldbCmakeFiles()
     {
-        Log.Info("Patching LLDB CMake files to force static linking...");
+        Log.Info("Patching LLDB CMake files for conditional SHARED/STATIC linking...");
 
-        if (StampFile.IsPresent(Config.SourceDir, "patch"))
+        if (StampFile.IsPresent(Config.SourceDir, "patch-v2"))
         {
             Log.Info("  Patching already done.");
             return true;
         }
 
         var apiCmakePath = Config.SourceDir / "lldb" / "source" / "API" / "CMakeLists.txt";
-        if (!PatchFile(apiCmakePath, "add_lldb_library(liblldb SHARED", "add_lldb_library(liblldb STATIC"))
+        var conditionalLiblldb =
+            "if(LLDB_BUILD_SHARED_LIB)\n" +
+            "  set(_liblldb_type SHARED)\n" +
+            "else()\n" +
+            "  set(_liblldb_type STATIC)\n" +
+            "endif()\n" +
+            "add_lldb_library(liblldb ${_liblldb_type}";
+        if (!PatchLldbLibraryType(apiCmakePath, "liblldb", conditionalLiblldb))
         {
             return false;
         }
 
         var intelFeaturesCmakePath = Config.SourceDir / "lldb" / "tools" / "intel-features" / "CMakeLists.txt";
-        if (!PatchFile(
-            intelFeaturesCmakePath, "add_lldb_library(lldbIntelFeatures SHARED",
-            "add_lldb_library(lldbIntelFeatures STATIC"))
+        var conditionalIntelFeatures =
+            "if(LLDB_BUILD_SHARED_LIB)\n" +
+            "  set(_intel_features_type SHARED)\n" +
+            "else()\n" +
+            "  set(_intel_features_type STATIC)\n" +
+            "endif()\n" +
+            "add_lldb_library(lldbIntelFeatures ${_intel_features_type}";
+        if (!PatchLldbLibraryType(intelFeaturesCmakePath, "lldbIntelFeatures", conditionalIntelFeatures))
         {
             return false;
         }
 
-        StampFile.Create(Config.SourceDir, "patch");
+        StampFile.Create(Config.SourceDir, "patch-v2");
 
         return true;
+    }
+
+    private static bool PatchLldbLibraryType(FilePath path, string libraryName, string replacement)
+    {
+        // Handle both fresh source (SHARED) and previously-patched source (STATIC).
+        if (PatchFile(path, $"add_lldb_library({libraryName} SHARED", replacement))
+        {
+            return true;
+        }
+
+        if (PatchFile(path, $"add_lldb_library({libraryName} STATIC", replacement))
+        {
+            return true;
+        }
+
+        Log.Error($"ERROR: Could not patch {libraryName} library type in {path}. " +
+                  "Neither SHARED nor STATIC declaration found.");
+        return false;
     }
 
     private static bool PatchFile(FilePath path, string oldValue, string newValue)
@@ -223,7 +252,6 @@ endif()
 
             if (!result)
             {
-                Log.Error($"ERROR: Patching file '{path}' failed. The text to replace was not found:\n  '{oldValue}'");
                 return false;
             }
 
@@ -328,6 +356,10 @@ endif()
     private async Task<bool> ExpandPrebuilts()
     {
         var typesToExpand = new List<PrebuiltType> { PrebuiltType.BootstrapClang, PrebuiltType.HostSysroot };
+        if (Config.BuildTargets.IsSet(BuildTargets.LibLldb))
+        {
+            typesToExpand.Add(PrebuiltType.GlibcHostSysroot);
+        }
         if (Config.Architectures.IsSet(TargetArch.X64))
         {
             typesToExpand.Add(PrebuiltType.X64GlibcSysroot);

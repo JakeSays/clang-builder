@@ -4,6 +4,7 @@ public enum PrebuiltType
 {
     BootstrapClang,
     HostSysroot,
+    GlibcHostSysroot,
     X64GlibcSysroot,
     X64MuslSysroot,
     Armv7GlibcSysroot,

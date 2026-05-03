@@ -96,6 +96,7 @@ internal class StaticPythonBuilder
         RUN wget https://www.python.org/ftp/python/{pyVersion}/Python-{pyVersion}.tar.xz
         RUN tar -xf Python-{pyVersion}.tar.xz
 
+        # --- Static build (libpython3.x.a with all modules baked in) ---
         WORKDIR /build/Python-{pyVersion}
 
         RUN ./configure \
