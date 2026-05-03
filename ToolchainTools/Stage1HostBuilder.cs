@@ -102,6 +102,7 @@ public class Stage1HostBuilder
             .RtLib("compiler-rt")
             .UnwindLib("none")
             .NoStdLibCxx()
+            .Wl("-z,notext")
             .Build();
 
         var pythonInfo = _config.Python!;

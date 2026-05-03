@@ -21,6 +21,7 @@ public class BuildConfiguration
     public required FilePath PrebuiltsSourceDir { get; init; }
     public FilePath BootstrapClangDir { get; set; }
     public FilePath HostSysroot { get; set; }
+    public FilePath GlibcHostSysroot { get; set; }
     public required FilePath CmakeModulesDir { get; init; }
     public bool KeepWorkDir { get; init; }
     public bool Package { get; init; }

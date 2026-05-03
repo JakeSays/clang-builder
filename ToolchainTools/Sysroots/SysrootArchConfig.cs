@@ -11,11 +11,11 @@ public static class SysrootArchConfigs
     public static readonly IReadOnlyDictionary<string, SysrootArch> All =
         new Dictionary<string, SysrootArch>
         {
-            ["host-x64"] = new("amd64", "http://deb.debian.org/debian", "bullseye",
+            ["host-x64"] = new("amd64", "http://deb.debian.org/debian", "bookworm",
             [
-                "libc6-dev", "libgcc-10-dev", "zlib1g-dev", "libpthread-stubs0-dev",
+                "libc6-dev", "libgcc-12-dev", "zlib1g-dev",
                 "python3-dev", "libedit-dev", "libncurses-dev",
-                "libzstd-dev", "libxml2-dev", "libstdc++-10-dev", "gcc-10"
+                "libzstd-dev", "libxml2-dev", "libstdc++-12-dev", "gcc-12"
             ]),
             ["x64"] = new("amd64", "http://deb.debian.org/debian", "bookworm",
                 ["libc6-dev", "linux-libc-dev", "zlib1g-dev"]),

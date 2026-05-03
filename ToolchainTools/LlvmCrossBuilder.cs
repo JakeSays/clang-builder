@@ -136,6 +136,19 @@ public class LlvmCrossBuilder
             }
         }
 
+        // liblldb.so is built last — it uses a separate build tree against the glibc
+        // host sysroot, so it doesn't interfere with the musl-based static builds above.
+        if (bt.IsSet(BuildTargets.LibLldb))
+        {
+            Log.Info(LogColor.Cyan, "Building liblldb.so...");
+            var liblldbBuilder = new LibLldbSharedBuilder(_config);
+            if (!await liblldbBuilder.Build())
+            {
+                Log.Error("ERROR: liblldb.so build failed.");
+                return false;
+            }
+        }
+
         if (_config.RunTests)
         {
             Log.Warning("TODO: Implement and run toolchain tests based on tools/tests/toolchain/run-tests.sh");

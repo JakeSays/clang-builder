@@ -188,7 +188,7 @@ public static class CommandLineParser
         var buildTargets = ParseBuildTargets(buildTarget);
         if (buildTargets == BuildTargets.None)
         {
-            Log.Error($"Unknown --build-target '{buildTarget}'. Valid: stage1, rt-glibc, rt-musl, libcxx-glibc, libcxx-musl, san-glibc, san-musl, lldb-server, all");
+            Log.Error($"Unknown --build-target '{buildTarget}'. Valid: stage1, rt-glibc, rt-musl, libcxx-glibc, libcxx-musl, san-glibc, san-musl, lldb-server, liblldb, all");
             return false;
         }
 
@@ -214,6 +214,7 @@ public static class CommandLineParser
             PackageThreads = threads,
             BootstrapClangDir = prebuiltsOutputDir / "bootstrap-clang",
             HostSysroot = prebuiltsOutputDir / "host",
+            GlibcHostSysroot = prebuiltsOutputDir / "glibc-host",
             CmakeModulesDir = workDir / "cmake-modules",
             X64Sysroot = Sysroot(TargetArch.X64, "x64"),
             X64MuslSysroot = Sysroot(TargetArch.X64, "x64-musl"),
@@ -525,6 +526,7 @@ public static class CommandLineParser
             "san-glibc" => BuildTargets.SanGlibc,
             "san-musl" => BuildTargets.SanMusl,
             "lldb-server" => BuildTargets.LldbServer,
+            "liblldb" => BuildTargets.LibLldb,
             _ => BuildTargets.None,
         };
 

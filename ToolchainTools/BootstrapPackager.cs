@@ -59,13 +59,13 @@ public class BootstrapPackager : ToolchainPackager
         if (Directory.Exists(binDir))
         {
             var binMatcher = new Matcher(StringComparison.OrdinalIgnoreCase);
-            binMatcher.AddIncludePatterns(new[]
-            {
+            binMatcher.AddIncludePatterns(
+            [
                 // Compilers
                 "clang", "clang++", "clang-*",
                 // Linkers — only the ELF linker is needed; MachO/COFF/Wasm are not
-                "lld", "ld.lld",
-            });
+                "lld", "ld.lld"
+            ]);
 
             foreach (var file in Directory.GetFiles(binDir))
             {
@@ -81,11 +81,11 @@ public class BootstrapPackager : ToolchainPackager
         if (Directory.Exists(libDir))
         {
             var libMatcher = new Matcher(StringComparison.OrdinalIgnoreCase);
-            libMatcher.AddIncludePatterns(new[]
-            {
+            libMatcher.AddIncludePatterns(
+            [
                 "ld-musl-x86_64.so*", "libLLVM.so*", "libLLVM-*.so",
                 "clang", "*-linux-*", "*-unknown-linux-*"
-            });
+            ]);
 
             foreach (var entry in Directory.GetFileSystemEntries(libDir))
             {

@@ -12,7 +12,8 @@ public enum BuildTargets
     SanGlibc = 1 << 5,
     SanMusl = 1 << 6,
     LldbServer = 1 << 7,
-    All = Stage1 | RtGlibc | RtMusl | LibcxxGlibc | LibcxxMusl | SanGlibc | SanMusl | LldbServer,
+    LibLldb = 1 << 8,
+    All = Stage1 | RtGlibc | RtMusl | LibcxxGlibc | LibcxxMusl | SanGlibc | SanMusl | LldbServer | LibLldb,
 }
 
 public static class BuildTargetsExtensions
