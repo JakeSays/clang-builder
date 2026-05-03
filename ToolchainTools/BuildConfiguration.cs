@@ -25,6 +25,7 @@ public class BuildConfiguration
     public required FilePath CmakeModulesDir { get; init; }
     public bool KeepWorkDir { get; init; }
     public bool Package { get; init; }
+    public bool PackageOnly { get; init; }
     public bool RunTestsOnly { get; init; }
     public TargetArch? TestArch { get; init; }
     public FilePath? X64Sysroot { get; init; }

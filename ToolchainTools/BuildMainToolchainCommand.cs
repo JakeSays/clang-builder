@@ -40,6 +40,31 @@ public static class BuildMainToolchainCommand
                 return 1;
             }
 
+            if (config.PackageOnly)
+            {
+                Log.Warning("--package-only specified. Skipping build; packaging existing install dir.");
+
+                if (!config.InstallDir.Exists)
+                {
+                    Log.Error($"ERROR: --package-only requires an existing install at '{config.InstallDir}'.");
+                    return 1;
+                }
+
+                if (!await EnsureClangVersionSet(config))
+                {
+                    return 1;
+                }
+
+                var packager = new MainToolchainPackager(config);
+                if (await packager.Package())
+                {
+                    return 0;
+                }
+
+                Log.Error("ERROR: Failed to package the toolchain.");
+                return 1;
+            }
+
             if (!await prepper.Prepare())
             {
                 Log.Error("Build preparation failed. Aborting.");

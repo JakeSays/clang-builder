@@ -22,9 +22,10 @@ public static class CommandLineParser
         var forceReconfigure = false;
         var runTests = false;
         var runTestsOnly = false;
-        string? buildTarget = null;
+        var buildTargets = BuildTargets.None;
         TargetArch? testArch = null;
         var package = false;
+        var packageOnly = false;
         var threads = 0;
 
         for (int i = 0; i < args.Length; i++)
@@ -96,12 +97,24 @@ public static class CommandLineParser
                     runTestsOnly = true;
                     break;
                 case "--build-target":
-                    buildTarget = NextArg(args, ref i, "--build-target");
-                    if (buildTarget == null)
+                {
+                    var val = NextArg(args, ref i, "--build-target");
+                    if (val == null)
                     {
                         return false;
                     }
+                    foreach (var token in val.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    {
+                        var parsed = ParseBuildTargets(token);
+                        if (parsed == BuildTargets.None)
+                        {
+                            Log.Error($"Unknown --build-target '{token}'. Valid: stage1, rt-glibc, rt-musl, libcxx-glibc, libcxx-musl, san-glibc, san-musl, lldb-server, liblldb, all");
+                            return false;
+                        }
+                        buildTargets |= parsed;
+                    }
                     break;
+                }
                 case "--test-arch":
                 {
                     var val = NextArg(args, ref i, "--test-arch");
@@ -126,6 +139,10 @@ public static class CommandLineParser
                     break;
                 }
                 case "--package":
+                    package = true;
+                    break;
+                case "--package-only":
+                    packageOnly = true;
                     package = true;
                     break;
                 case "--threads":
@@ -185,11 +202,10 @@ public static class CommandLineParser
             return false;
         }
 
-        var buildTargets = ParseBuildTargets(buildTarget);
+        // No --build-target specified → default to all targets (preserves prior behavior).
         if (buildTargets == BuildTargets.None)
         {
-            Log.Error($"Unknown --build-target '{buildTarget}'. Valid: stage1, rt-glibc, rt-musl, libcxx-glibc, libcxx-musl, san-glibc, san-musl, lldb-server, liblldb, all");
-            return false;
+            buildTargets = BuildTargets.All;
         }
 
         var workDir = new FilePath(Path.GetFullPath(workDirRaw));
@@ -228,6 +244,7 @@ public static class CommandLineParser
             X86MuslSysroot = Sysroot(TargetArch.X86, "x86-musl"),
             KeepWorkDir = keepWorkDir,
             Package = package,
+            PackageOnly = packageOnly,
             RunTestsOnly = runTestsOnly,
             TestArch = testArch,
         };
@@ -551,10 +568,15 @@ public static class CommandLineParser
               --force-reconfigure      Force cmake reconfigure
               --run-tests              Run tests before packaging
               --run-tests-only         Only run tests on an existing build
-              --build-target <target>  Build specific target only (stage1, rt-glibc, rt-musl,
-                                       libcxx-glibc, libcxx-musl, san-glibc, san-musl, lldb-server, all)
+              --build-target <list>    Comma-separated targets to build (default: all). May be
+                                       repeated; values OR together. Valid: stage1, rt-glibc,
+                                       rt-musl, libcxx-glibc, libcxx-musl, san-glibc, san-musl,
+                                       lldb-server, liblldb, all
+                                       Example: --build-target rt-glibc,libcxx-glibc,san-glibc
               --test-arch <arch>       Only test this arch (x64, aarch64, armv7, riscv64, x32)
               --package                Package the toolchain after build
+              --package-only           Skip the build entirely; just package an already-built
+                                       install dir (implies --package)
               --threads <n>            zstd compression threads (requires --package, default: 0 = auto)
             """);
     }

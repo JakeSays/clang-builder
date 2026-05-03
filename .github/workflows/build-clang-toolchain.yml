@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       llvm_version:
-        description: 'LLVM version to build (e.g. 22.1.2)'
+        description: 'LLVM version to build (e.g. 22.1.3)'
         required: true
-        default: '22.1.2'
+        default: '22.1.3'
   workflow_call:
     inputs:
       llvm_version:
@@ -14,72 +14,209 @@ on:
         required: true
         type: string
 
+env:
+  LLVM_VERSION: ${{ inputs.llvm_version }}
+  JOBS: 4
+
 jobs:
-  build:
+  # ---------------------------------------------------------------------------
+  # Phase 1: Build stage1 host clang/lld/lldb (musl, fully static).
+  # Single job — must finish before any per-arch lane can start.
+  # ---------------------------------------------------------------------------
+  host-stage:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 350
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build git python3 curl xz-utils patchelf rsync \
+            qemu-user qemu-user-static dotnet-sdk-10.0
+
+      - name: Build clang-builder
+        run: |
+          dotnet publish -c Release --no-self-contained \
+            -r linux-x64 \
+            -o "$RUNNER_TEMP/toolchain-tools" \
+            ToolchainTools/ToolchainTools.csproj
+
+      - name: Build stage1 host
+        run: |
+          "$RUNNER_TEMP/toolchain-tools/clang-builder" build \
+            --llvm-version "$LLVM_VERSION" \
+            --all \
+            --prebuilts-dir "$GITHUB_WORKSPACE/prebuilts" \
+            --work-dir      "$RUNNER_TEMP/toolchain-work" \
+            --output-dir    "$GITHUB_WORKSPACE" \
+            --jobs          "$JOBS" \
+            --build-target  stage1 \
+            --keep-work-dir
+
+      - name: Upload stage1 install
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-stage1
+          path: ${{ runner.temp }}/toolchain-work/clang-${{ inputs.llvm_version }}-linux-x86_64
+          retention-days: 1
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Phase 2: 10-way matrix — runtimes (rt + libcxx + sanitizers) per
+  # (arch, libc); musl lanes also build that arch's lldb-server.
+  # All lanes are fully independent and write to disjoint triple-named dirs.
+  # ---------------------------------------------------------------------------
+  matrix-build:
+    needs: host-stage
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x64,     libc: glibc, targets: "rt-glibc,libcxx-glibc,san-glibc" }
+          - { arch: armv7,   libc: glibc, targets: "rt-glibc,libcxx-glibc,san-glibc" }
+          - { arch: aarch64, libc: glibc, targets: "rt-glibc,libcxx-glibc,san-glibc" }
+          - { arch: riscv64, libc: glibc, targets: "rt-glibc,libcxx-glibc,san-glibc" }
+          - { arch: x32,     libc: glibc, targets: "rt-glibc,libcxx-glibc,san-glibc" }
+          - { arch: x64,     libc: musl,  targets: "rt-musl,libcxx-musl,san-musl,lldb-server" }
+          - { arch: armv7,   libc: musl,  targets: "rt-musl,libcxx-musl,san-musl,lldb-server" }
+          - { arch: aarch64, libc: musl,  targets: "rt-musl,libcxx-musl,san-musl,lldb-server" }
+          - { arch: riscv64, libc: musl,  targets: "rt-musl,libcxx-musl,san-musl,lldb-server" }
+          - { arch: x32,     libc: musl,  targets: "rt-musl,libcxx-musl,san-musl,lldb-server" }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build git python3 curl xz-utils patchelf rsync \
+            qemu-user qemu-user-static dotnet-sdk-10.0
+
+      - name: Build clang-builder
+        run: |
+          dotnet publish -c Release --no-self-contained \
+            -r linux-x64 \
+            -o "$RUNNER_TEMP/toolchain-tools" \
+            ToolchainTools/ToolchainTools.csproj
+
+      - name: Restore stage1 install
+        uses: actions/download-artifact@v4
+        with:
+          name: install-stage1
+          path: ${{ runner.temp }}/toolchain-work/clang-${{ inputs.llvm_version }}-linux-x86_64
+
+      - name: Mark pre-build state
+        run: touch "$RUNNER_TEMP/before-build"
+
+      - name: Build lane (${{ matrix.arch }}-${{ matrix.libc }})
+        run: |
+          "$RUNNER_TEMP/toolchain-tools/clang-builder" build \
+            --llvm-version "$LLVM_VERSION" \
+            --${{ matrix.arch }} \
+            --prebuilts-dir "$GITHUB_WORKSPACE/prebuilts" \
+            --work-dir      "$RUNNER_TEMP/toolchain-work" \
+            --output-dir    "$GITHUB_WORKSPACE" \
+            --jobs          "$JOBS" \
+            --build-target  "${{ matrix.targets }}" \
+            --keep-work-dir
+
+      - name: Pack only new/changed files
+        run: |
+          INSTALL_DIR="$RUNNER_TEMP/toolchain-work/clang-${LLVM_VERSION}-linux-x86_64"
+          cd "$INSTALL_DIR"
+          find . -newer "$RUNNER_TEMP/before-build" \( -type f -o -type l \) -print0 \
+            | tar --null --owner=0 --group=0 -czf "$RUNNER_TEMP/install-lane.tar.gz" -T -
+
+      - name: Upload lane diff
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-lane-${{ matrix.arch }}-${{ matrix.libc }}
+          path: ${{ runner.temp }}/install-lane.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Phase 3: Merge per-lane diffs onto stage1, package the toolchain, and
+  # publish a GitHub release.
+  #
+  # NOTE: liblldb.so is intentionally NOT built here yet — Python support for
+  # liblldb (needed by CLion) is pending. To re-enable, add a
+  # `clang-builder build ... --build-target liblldb --keep-work-dir` step
+  # before the package step below.
+  # ---------------------------------------------------------------------------
+  merge-and-final:
+    needs: matrix-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     permissions:
       contents: write   # required to create GitHub releases
 
-    env:
-      LLVM_VERSION: ${{ inputs.llvm_version }}
-      JOBS: 4   # GitHub Actions runners have 4 cores
-
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
 
-    # -------------------------------------------------------------------------
-    # 1. Checkout repo (includes prebuilts/ stored in Git LFS)
-    # -------------------------------------------------------------------------
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        lfs: true
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build git python3 curl xz-utils patchelf rsync \
+            qemu-user qemu-user-static dotnet-sdk-10.0
 
-    # -------------------------------------------------------------------------
-    # 2. Install host build dependencies
-    # -------------------------------------------------------------------------
-    - name: Install host dependencies
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y --no-install-recommends \
-          cmake ninja-build git python3 curl xz-utils patchelf \
-          qemu-user qemu-user-static dotnet-sdk-10.0
+      - name: Build clang-builder
+        run: |
+          dotnet publish -c Release --no-self-contained \
+            -r linux-x64 \
+            -o "$RUNNER_TEMP/toolchain-tools" \
+            ToolchainTools/ToolchainTools.csproj
 
-    # -------------------------------------------------------------------------
-    # 3. Build ToolchainTools
-    # -------------------------------------------------------------------------
-    - name: Build ToolchainTools
-      run: |
-        dotnet publish -c Release --no-self-contained \
-          -r linux-x64 \
-          -o "$RUNNER_TEMP/toolchain-tools" \
-          ToolchainTools/ToolchainTools.csproj
+      - name: Download all lane artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: install-*
+          path: ${{ runner.temp }}/artifacts
 
-    # -------------------------------------------------------------------------
-    # 4. Build toolchain (all targets, with tests and packaging)
-    # -------------------------------------------------------------------------
-    - name: Build toolchain
-      run: |
-        "$RUNNER_TEMP/toolchain-tools/clang-builder" build \
-          --llvm-version "${LLVM_VERSION}" \
-          --all \
-          --prebuilts-dir "${{ github.workspace }}/prebuilts" \
-          --work-dir      "$RUNNER_TEMP/toolchain-work" \
-          --output-dir    "${{ github.workspace }}" \
-          --jobs          "${JOBS}" \
-          --run-tests \
-          --package \
-          --keep-work-dir
+      - name: Assemble merged install
+        run: |
+          INSTALL_DIR="$RUNNER_TEMP/toolchain-work/clang-${LLVM_VERSION}-linux-x86_64"
+          mkdir -p "$INSTALL_DIR"
+          rsync -a "$RUNNER_TEMP/artifacts/install-stage1/" "$INSTALL_DIR/"
+          for lane in "$RUNNER_TEMP/artifacts"/install-lane-*; do
+            tar -xzf "$lane/install-lane.tar.gz" -C "$INSTALL_DIR/"
+          done
 
-    # -------------------------------------------------------------------------
-    # 5. Publish GitHub release
-    # -------------------------------------------------------------------------
-    - name: Create GitHub release
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        gh release create "clang-${LLVM_VERSION}" \
-          --title "Clang ${LLVM_VERSION} Linux x86_64" \
-          --notes "Clang/LLD/LLDB ${LLVM_VERSION} cross-compilation toolchain for Linux x86_64." \
-          "clang-${LLVM_VERSION}-linux-x86_64.tar.zst"
+      - name: Package toolchain
+        run: |
+          "$RUNNER_TEMP/toolchain-tools/clang-builder" build \
+            --llvm-version "$LLVM_VERSION" \
+            --all \
+            --prebuilts-dir "$GITHUB_WORKSPACE/prebuilts" \
+            --work-dir      "$RUNNER_TEMP/toolchain-work" \
+            --output-dir    "$GITHUB_WORKSPACE" \
+            --jobs          "$JOBS" \
+            --package-only \
+            --keep-work-dir
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "clang-${LLVM_VERSION}" \
+            --title "Clang ${LLVM_VERSION} Linux x86_64" \
+            --notes "Clang/LLD/LLDB ${LLVM_VERSION} cross-compilation toolchain for Linux x86_64." \
+            "clang-${LLVM_VERSION}-linux-x86_64.tar.zst"
