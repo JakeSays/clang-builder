@@ -176,6 +176,10 @@ public class Stage1HostBuilder
             .CmakeOff("LLVM_BUILD_LLVM_DYLIB")
             .CmakeOff("LLVM_LINK_LLVM_DYLIB")
             .CmakeOff("CLANG_LINK_CLANG_DYLIB")
+            // Skip installing static archives, dev headers, and cmake configs.
+            // This toolchain ships clang/lld/lldb for end-user compilation, not
+            // for building tooling that links against LLVM/Clang as a library.
+            .CmakeOn("LLVM_INSTALL_TOOLCHAIN_ONLY")
             .CmakeOff("LLVM_TOOL_LTO_BUILD")
             .CmakeOff("CLANG_TOOL_LIBCLANG_BUILD")
             .CmakeOff("CLANG_TOOL_CLANG_SHLIB_BUILD")

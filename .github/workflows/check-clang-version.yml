@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write   # to commit current-clang-version.txt
       actions: write    # to trigger build-clang-toolchain.yml
 
     outputs:
@@ -42,17 +41,6 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "should_build=true" >> "$GITHUB_OUTPUT"
         fi
-
-    - name: Update current-clang-version.txt
-      if: steps.resolve.outputs.should_build == 'true'
-      run: |
-        VERSION="${{ steps.resolve.outputs.version }}"
-        echo "${VERSION}" > current-clang-version.txt
-        git config user.name  "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add current-clang-version.txt
-        git diff --cached --quiet || git commit -m "chore: update clang version to ${VERSION}"
-        git push
 
     - name: Trigger build
       if: steps.resolve.outputs.should_build == 'true'
