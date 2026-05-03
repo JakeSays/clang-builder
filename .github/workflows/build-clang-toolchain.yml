@@ -59,11 +59,17 @@ jobs:
             --build-target  stage1 \
             --keep-work-dir
 
+      - name: Pack stage1 install
+        run: |
+          cd "$RUNNER_TEMP/toolchain-work"
+          tar --owner=0 --group=0 -czf "$RUNNER_TEMP/install-stage1.tar.gz" \
+            "clang-${LLVM_VERSION}-linux-x86_64"
+
       - name: Upload stage1 install
         uses: actions/upload-artifact@v4
         with:
           name: install-stage1
-          path: ${{ runner.temp }}/toolchain-work/clang-${{ inputs.llvm_version }}-linux-x86_64
+          path: ${{ runner.temp }}/install-stage1.tar.gz
           retention-days: 1
           if-no-files-found: error
 
@@ -116,7 +122,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: install-stage1
-          path: ${{ runner.temp }}/toolchain-work/clang-${{ inputs.llvm_version }}-linux-x86_64
+          path: ${{ runner.temp }}/stage1-artifact
+
+      - name: Unpack stage1 install
+        run: |
+          mkdir -p "$RUNNER_TEMP/toolchain-work"
+          tar -xpzf "$RUNNER_TEMP/stage1-artifact/install-stage1.tar.gz" \
+            -C "$RUNNER_TEMP/toolchain-work"
 
       - name: Mark pre-build state
         run: touch "$RUNNER_TEMP/before-build"
@@ -194,10 +206,11 @@ jobs:
       - name: Assemble merged install
         run: |
           INSTALL_DIR="$RUNNER_TEMP/toolchain-work/clang-${LLVM_VERSION}-linux-x86_64"
-          mkdir -p "$INSTALL_DIR"
-          rsync -a "$RUNNER_TEMP/artifacts/install-stage1/" "$INSTALL_DIR/"
+          mkdir -p "$RUNNER_TEMP/toolchain-work"
+          tar -xpzf "$RUNNER_TEMP/artifacts/install-stage1/install-stage1.tar.gz" \
+            -C "$RUNNER_TEMP/toolchain-work"
           for lane in "$RUNNER_TEMP/artifacts"/install-lane-*; do
-            tar -xzf "$lane/install-lane.tar.gz" -C "$INSTALL_DIR/"
+            tar -xpzf "$lane/install-lane.tar.gz" -C "$INSTALL_DIR/"
           done
 
       - name: Package toolchain
