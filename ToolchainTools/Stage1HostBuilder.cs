@@ -169,10 +169,6 @@ public class Stage1HostBuilder
             .CmakeOff("LLVM_BUILD_LLVM_DYLIB")
             .CmakeOff("LLVM_LINK_LLVM_DYLIB")
             .CmakeOff("CLANG_LINK_CLANG_DYLIB")
-            // Skip installing static archives, dev headers, and cmake configs.
-            // This toolchain ships clang/lld/lldb for end-user compilation, not
-            // for building tooling that links against LLVM/Clang as a library.
-            .CmakeOn("LLVM_INSTALL_TOOLCHAIN_ONLY")
             .CmakeOff("LLVM_TOOL_LTO_BUILD")
             .CmakeOff("CLANG_TOOL_LIBCLANG_BUILD")
             .CmakeOff("CLANG_TOOL_CLANG_SHLIB_BUILD")
@@ -225,16 +221,17 @@ public class Stage1HostBuilder
             return false;
         }
 
-        // LLVM_INSTALL_TOOLCHAIN_ONLY=ON skips llvm-config, but the per-target
-        // libcxx and compiler-rt cross builds need it via LLVM_CONFIG_PATH.
-        // Install just that component (no archives, no headers).
-        var llvmConfigInstallArgs = new ArgBuilder()
-            .DashDash("install", _hostBuildDir, Quoted.Yes)
-            .DashDash("component", "llvm-config");
-        if (await ProcessRunner.Run("cmake", llvmConfigInstallArgs.Build()) != 0)
+        // Drop the ~600 MB of LLVM/Clang/LLD/LLDB static archives at the top of lib/.
+        // They are dev artifacts for tools that link against LLVM as a library; this
+        // toolchain only ships clang/lld/lldb for compilation. Per-target runtimes
+        // under lib/<triple>/ and lib/clang/<ver>/lib/<triple>/ are preserved.
+        var topLibDir = _config.InstallDir / "lib";
+        if (Directory.Exists(topLibDir))
         {
-            Log.Error("ERROR: Failed to install llvm-config component.");
-            return false;
+            foreach (var file in Directory.EnumerateFiles(topLibDir, "*.a", SearchOption.TopDirectoryOnly))
+            {
+                File.Delete(file);
+            }
         }
 
         return true;
