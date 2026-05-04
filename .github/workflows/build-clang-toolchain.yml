@@ -31,9 +31,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          lfs: true
+          # LFS pull only needed for prebuilts; skip it on stage1 cache hit.
+          lfs: false
+
+      - name: Restore stage1 cache
+        id: stage1-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/install-stage1.tar.gz
+          key: stage1-${{ inputs.llvm_version }}
+
+      - name: Pull LFS prebuilts
+        if: steps.stage1-cache.outputs.cache-hit != 'true'
+        run: git lfs pull
 
       - name: Install host dependencies
+        if: steps.stage1-cache.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
@@ -41,6 +54,7 @@ jobs:
             qemu-user qemu-user-static dotnet-sdk-10.0
 
       - name: Build clang-builder
+        if: steps.stage1-cache.outputs.cache-hit != 'true'
         run: |
           dotnet publish -c Release \
             -r linux-x64 \
@@ -48,6 +62,7 @@ jobs:
             ToolchainTools/ToolchainTools.csproj
 
       - name: Build stage1 host
+        if: steps.stage1-cache.outputs.cache-hit != 'true'
         run: |
           "$RUNNER_TEMP/toolchain-tools/clang-builder" build \
             --llvm-version "$LLVM_VERSION" \
@@ -60,6 +75,7 @@ jobs:
             --keep-work-dir
 
       - name: Pack stage1 install
+        if: steps.stage1-cache.outputs.cache-hit != 'true'
         run: |
           cd "$RUNNER_TEMP/toolchain-work"
           tar --owner=0 --group=0 -czf "$RUNNER_TEMP/install-stage1.tar.gz" \
