@@ -54,6 +54,21 @@ public class MainToolchainPackager : ToolchainPackager
 
         CreateConvenienceSymlinks(_config.InstallDir);
 
+        // Drop the ~600 MB of LLVM/Clang/LLD/LLDB static archives at the top of lib/.
+        // These are dev artifacts for tools that link against LLVM as a library; this
+        // toolchain only ships clang/lld/lldb for compilation. The cross-build phases
+        // need them via LLVMExports.cmake, so deletion happens here at packaging time
+        // after all builds are complete. Per-target runtimes under lib/<triple>/ and
+        // lib/clang/<ver>/lib/<triple>/ are preserved.
+        var topLibDir = _config.InstallDir / "lib";
+        if (Directory.Exists(topLibDir))
+        {
+            foreach (var file in Directory.EnumerateFiles(topLibDir, "*.a", SearchOption.TopDirectoryOnly))
+            {
+                File.Delete(file);
+            }
+        }
+
         Directory.CreateDirectory(_config.OutputDir);
 
         var threads = _config.PackageThreads > 0 ? _config.PackageThreads : 0;

@@ -221,19 +221,6 @@ public class Stage1HostBuilder
             return false;
         }
 
-        // Drop the ~600 MB of LLVM/Clang/LLD/LLDB static archives at the top of lib/.
-        // They are dev artifacts for tools that link against LLVM as a library; this
-        // toolchain only ships clang/lld/lldb for compilation. Per-target runtimes
-        // under lib/<triple>/ and lib/clang/<ver>/lib/<triple>/ are preserved.
-        var topLibDir = _config.InstallDir / "lib";
-        if (Directory.Exists(topLibDir))
-        {
-            foreach (var file in Directory.EnumerateFiles(topLibDir, "*.a", SearchOption.TopDirectoryOnly))
-            {
-                File.Delete(file);
-            }
-        }
-
         return true;
     }
  }
