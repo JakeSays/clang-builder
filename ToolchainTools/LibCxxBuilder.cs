@@ -174,7 +174,7 @@ public class LibCxxBuilder
     private (string cFlags, string sharedLdFlags, string exeLdFlags) BuildCompileAndLinkFlags(bool isPic, FilePath rtBuiltinsDir, bool needsRuneTable)
     {
         var cFlagsStr = new ArgBuilder()
-            .Target(_target.Triple)
+            .Target(_target.CmakeTriple)
             .Text(_target.ExtraFlags)
             .ColorAlways()
             .Dash("funwind-tables")
@@ -188,7 +188,7 @@ public class LibCxxBuilder
         //   do not reference malloc, so they are safe to link into shared libs.
         // Multiarch paths come FIRST so libc.so (linker script) is found before libc.a.
         var ldBuilder = new ArgBuilder()
-            .Target(_target.Triple)
+            .Target(_target.CmakeTriple)
             .Text(_target.ExtraFlags)
             .Sysroot(_target.Sysroot)
             .LibPathIf(!_target.IsMusl, _target.Sysroot / "lib" / _target.GnuTriple)

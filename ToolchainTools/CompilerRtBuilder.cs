@@ -71,7 +71,7 @@ public class CompilerRtBuilder
 //        var normalizedTriple = _config.NormalizedTriples[_target.CmakeTriple];
 
         var cFlags = new ArgBuilder()
-            .Target(_target.Triple)
+            .Target(_target.CmakeTriple)
             .Text(_target.ExtraFlags)
             .Sysroot(_target.Sysroot)
             .ColorAlways()
@@ -79,7 +79,7 @@ public class CompilerRtBuilder
             .Build();
 
         var ldFlags = new ArgBuilder()
-            .Target(_target.Triple)
+            .Target(_target.CmakeTriple)
             .Text(_target.ExtraFlags)
             .Sysroot(_target.Sysroot)
             .LibPath(_target.Sysroot / "usr" / "lib" / _target.GnuTriple)
@@ -172,7 +172,7 @@ public class CompilerRtBuilder
         // and using --gcc-toolchain causes cmake to inject -lstdc++. This matches the
         // approach in build-compiler-rt.sh.
         var cFlags = new ArgBuilder()
-            .Target(_target.Triple)
+            .Target(_target.CmakeTriple)
             .Text(_target.ExtraFlags)
             .Sysroot(_target.Sysroot)
             .ColorAlways()
@@ -186,7 +186,7 @@ public class CompilerRtBuilder
             .Build();
 
         var ldFlagsBuilder = new ArgBuilder()
-            .Target(_target.Triple)
+            .Target(_target.CmakeTriple)
             .Text(_target.ExtraFlags)
             .Sysroot(_target.Sysroot)
             .LibPath(_target.Sysroot / "usr" / "lib" / _target.GnuTriple)

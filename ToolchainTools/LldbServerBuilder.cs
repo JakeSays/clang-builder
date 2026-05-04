@@ -106,7 +106,7 @@ public class LldbServerBuilder
             .FirstOrDefault(p => p.Exists);
 
         var cFlags = new ArgBuilder()
-            .Target(_target.Triple)
+            .Target(_target.CmakeTriple)
             .Text(_target.ExtraFlags)
             .ColorAlways();
 
@@ -116,7 +116,7 @@ public class LldbServerBuilder
             : _config.InstallDir / "include";
 
         var cxxFlags = new ArgBuilder()
-            .Target(_target.Triple)
+            .Target(_target.CmakeTriple)
             .Text(_target.ExtraFlags)
             .ColorAlways()
             // -nostdinc++ blocks clang from implicitly adding the glibc include/c++/v1 path
@@ -135,7 +135,7 @@ public class LldbServerBuilder
             .DefineIf(_target.IsMusl, "_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE");
 
         var ldFlags = new ArgBuilder()
-            .Target(_target.Triple)
+            .Target(_target.CmakeTriple)
             .Text(_target.ExtraFlags)
             .Sysroot(_target.Sysroot)
             .LibPath(_target.Sysroot / "lib")

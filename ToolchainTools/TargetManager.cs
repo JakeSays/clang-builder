@@ -42,10 +42,12 @@ public static class TargetManager
             new TargetInfo(
                 TargetArch.X64, "x86_64-linux-musl", "X86", "x86_64-linux-gnu", "-march=x86-64", true),
 
-            // Musl targets — compilation uses the same glibc-equivalent triple as the non-musl
-            // targets (musl-ness comes from the sysroot). MuslCmakeTriple is the musl-specific
-            // triple used for CMAKE_C_COMPILER_TARGET so compiler-rt and libc++ install into a
-            // separate musl subdirectory instead of colliding with the glibc install.
+            // Musl targets — Triple is the historical glibc-named identifier used for
+            // log lines and build-dir naming; CmakeTriple is the musl-specific triple
+            // (e.g. aarch64-linux-musl) and is what gets passed to clang as --target via
+            // both CMAKE_C_COMPILER_TARGET and the explicit --target= in CFLAGS/LDFLAGS.
+            // Using CmakeTriple consistently keeps compiler-rt resource lookup
+            // (lib/clang/<ver>/lib/<normalized-triple>/) on the musl subdir.
             new TargetInfo(
                 TargetArch.Armv7, "armv7-linux-gnueabihf", "ARM", "arm-linux-gnueabihf",
                 "-march=armv7-a -mfpu=neon -mfloat-abi=hard -D_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE",
