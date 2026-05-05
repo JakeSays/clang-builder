@@ -38,8 +38,14 @@ public abstract class ToolchainPackager
 
                 try
                 {
-                    if (File.Exists(linkPath) || Directory.Exists(linkPath)) File.Delete(linkPath);
-                    File.CreateSymbolicLink(linkPath, targetPath);
+                    if (File.Exists(linkPath) ||
+                        Directory.Exists(linkPath))
+                    {
+                        File.Delete(linkPath);
+                    }
+                    // Relative target — both link and target live in bin/, so the symlink
+                    // resolves correctly regardless of where the toolchain is extracted.
+                    File.CreateSymbolicLink(linkPath, tool);
                 }
                 catch (Exception e) { Log.Warning($"Warning: Failed to create symlink '{linkPath}': {e.Message}"); }
             }
