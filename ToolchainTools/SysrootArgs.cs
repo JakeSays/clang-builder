@@ -9,6 +9,7 @@ public record SysrootArgs(
     bool Musl,
     TargetArch EnabledArchs,
     string? Release,
+    string? RepoUrl,
     string[]? Packages,
     bool KeepWorkDir,
     bool NoPackage,

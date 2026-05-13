@@ -1,4 +1,4 @@
-namespace Std.BuildTools.Clang;
+namespace Std.BuildTools.Clang.Sysroots;
 
 public static class BuildMakeSysrootCommand
 {
@@ -33,7 +33,10 @@ public static class BuildMakeSysrootCommand
                 buildPython: true,
                 pyVersion: sysrootArgs.PyVersion,
                 keepWorkDir: sysrootArgs.KeepWorkDir,
-                noPackage: sysrootArgs.NoPackage);
+                noPackage: sysrootArgs.NoPackage,
+                packageOverride: sysrootArgs.Packages,
+                mirrorOverride: sysrootArgs.RepoUrl,
+                releaseOverride: sysrootArgs.Release);
 
             if (!await builder.Build())
             {
@@ -45,9 +48,10 @@ public static class BuildMakeSysrootCommand
         {
             var archConfig = SysrootArchConfigs.All["host-x64"];
             var suite = sysrootArgs.Release ?? archConfig.Suite;
+            var mirror = sysrootArgs.RepoUrl ?? archConfig.Mirror;
             var packages = sysrootArgs.Packages ?? archConfig.DefaultPackages;
 
-            var builder = new SysrootBuilder(workDir, outputDir, "host-x64", archConfig with { Suite = suite }, packages, "sysroot-x64-glibc-host.tar.xz");
+            var builder = new DebianSysrootBuilder(workDir, outputDir, "host-x64", archConfig with { Suite = suite, Mirror = mirror }, packages, "sysroot-x64-glibc-host.tar.xz");
             if (!await builder.Build())
             {
                 return 1;
@@ -60,9 +64,10 @@ public static class BuildMakeSysrootCommand
             {
                 var archConfig = SysrootArchConfigs.All[arch];
                 var suite = sysrootArgs.Release ?? archConfig.Suite;
+                var mirror = sysrootArgs.RepoUrl ?? archConfig.Mirror;
                 var packages = sysrootArgs.Packages ?? archConfig.DefaultPackages;
 
-                var builder = new SysrootBuilder(workDir, outputDir, arch, archConfig with { Suite = suite }, packages, $"sysroot-{arch}-glibc-cross.tar.xz");
+                var builder = new DebianSysrootBuilder(workDir, outputDir, arch, archConfig with { Suite = suite, Mirror = mirror }, packages, $"sysroot-{arch}-glibc-cross.tar.xz");
                 if (!await builder.Build())
                 {
                     return 1;
@@ -90,7 +95,10 @@ public static class BuildMakeSysrootCommand
                     buildPython: false,
                     pyVersion: sysrootArgs.PyVersion,
                     keepWorkDir: sysrootArgs.KeepWorkDir,
-                    noPackage: sysrootArgs.NoPackage);
+                    noPackage: sysrootArgs.NoPackage,
+                    packageOverride: sysrootArgs.Packages,
+                    mirrorOverride: sysrootArgs.RepoUrl,
+                    releaseOverride: sysrootArgs.Release);
 
                 if (!await builder.Build())
                 {

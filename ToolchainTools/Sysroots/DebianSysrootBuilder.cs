@@ -2,9 +2,10 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
 
-namespace Std.BuildTools.Clang;
 
-public class SysrootBuilder
+namespace Std.BuildTools.Clang.Sysroots;
+
+public class DebianSysrootBuilder
 {
     private readonly FilePath _workDir;
     private readonly FilePath _outputDir;
@@ -17,13 +18,13 @@ public class SysrootBuilder
     private readonly string _archiveName;
 
     private readonly Dictionary<string, DebPackage> _packagesMeta = new();
-    private readonly HashSet<string> _resolved = new();
+    private readonly HashSet<string> _resolved = [];
 
     private HttpClient _http = null!;
 
     private record DebPackage(string Name, string Filename, string[] Depends);
 
-    public SysrootBuilder(FilePath workDir, FilePath outputDir, string archName, SysrootArch arch, string[] packages, string archiveName)
+    public DebianSysrootBuilder(FilePath workDir, FilePath outputDir, string archName, SysrootArch arch, string[] packages, string archiveName)
     {
         _workDir = workDir;
         _outputDir = outputDir;

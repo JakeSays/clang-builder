@@ -1,8 +1,9 @@
-namespace Std.BuildTools.Clang;
+namespace Std.BuildTools.Clang.Sysroots;
 
 public class AlpineSysrootBuilder
 {
-    private const string AlpineMirror = "https://dl-cdn.alpinelinux.org/alpine/latest-stable";
+    private const string DefaultAlpineMirror = "https://dl-cdn.alpinelinux.org/alpine";
+    private const string DefaultAlpineRelease = "latest-stable";
 
     private static readonly string[] HostPackages =
     [
@@ -57,6 +58,9 @@ public class AlpineSysrootBuilder
     private readonly string _pyVersion;
     private readonly bool _keepWorkDir;
     private readonly bool _noPackage;
+    private readonly string[]? _packageOverride;
+    private readonly string _mirror;
+    private readonly string _release;
 
     public AlpineSysrootBuilder(
         FilePath workDir,
@@ -65,7 +69,10 @@ public class AlpineSysrootBuilder
         bool buildPython,
         string pyVersion,
         bool keepWorkDir,
-        bool noPackage)
+        bool noPackage,
+        string[]? packageOverride,
+        string? mirrorOverride,
+        string? releaseOverride)
     {
         _workDir = workDir;
         _outputPath = outputPath;
@@ -74,6 +81,9 @@ public class AlpineSysrootBuilder
         _pyVersion = pyVersion;
         _keepWorkDir = keepWorkDir;
         _noPackage = noPackage;
+        _packageOverride = packageOverride;
+        _mirror = (mirrorOverride ?? DefaultAlpineMirror).TrimEnd('/');
+        _release = releaseOverride ?? DefaultAlpineRelease;
     }
 
     public async Task<bool> Build()
@@ -86,11 +96,12 @@ public class AlpineSysrootBuilder
         }
 
         Directory.CreateDirectory(_workDir);
-        Log.Info($"Initializing {_apkArch} sysroot at '{_workDir}'...");
+        Log.Info($"Initializing {_apkArch} sysroot at '{_workDir}' (Alpine {_release} from {_mirror})...");
 
-        var packages = _buildPython
-            ? HostPackages
-            : CrossPackages;
+        var packages = _packageOverride
+            ?? (_buildPython
+                ? HostPackages
+                : CrossPackages);
         if (!await RunApk(apkStatic.Value, packages))
         {
             return false;
@@ -133,9 +144,10 @@ public class AlpineSysrootBuilder
     {
         Log.Info($"Installing packages: {string.Join(", ", packages)}");
 
+        var releaseUrl = $"{_mirror}/{_release}";
         var args = $"--root \"{_workDir}\" --arch {_apkArch}" +
-                   $" -X {AlpineMirror}/main" +
-                   $" -X {AlpineMirror}/community" +
+                   $" -X {releaseUrl}/main" +
+                   $" -X {releaseUrl}/community" +
                    $" -U --allow-untrusted --initdb add" +
                    $" {string.Join(' ', packages)}";
 

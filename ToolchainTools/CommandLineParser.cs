@@ -391,7 +391,11 @@ public static class CommandLineParser
         var musl = false;
         var enabledArchs = TargetArch.None;
         string? release = null;
-        string[]? packages = null;
+        string? repoUrl = null;
+        string[]? packagesArg = null;
+        string[]? packageListFile = null;
+        string? packageListRelease = null;
+        string? packageListRepoUrl = null;
         var keepWorkDir = false;
         var noPackage = false;
         var pyVersion = "3.12.3";
@@ -455,7 +459,20 @@ public static class CommandLineParser
                     {
                         return false;
                     }
-                    packages = val.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    packagesArg = val.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    break;
+                }
+                case "--package-list":
+                {
+                    var val = NextArg(args, ref i, "--package-list");
+                    if (val == null)
+                    {
+                        return false;
+                    }
+                    if (!TryReadPackageListFile(val, out packageListFile, out packageListRelease, out packageListRepoUrl))
+                    {
+                        return false;
+                    }
                     break;
                 }
                 case "--keep-work-dir":
@@ -503,6 +520,14 @@ public static class CommandLineParser
             return false;
         }
 
+        if (!TryCombinePackageInputs(packageListFile, packagesArg, out var packages))
+        {
+            return false;
+        }
+
+        release ??= packageListRelease;
+        repoUrl ??= packageListRepoUrl;
+
         sysrootArgs = new SysrootArgs(
             OutputDir: Path.GetFullPath(outputDir),
             WorkDir: Path.GetFullPath(workDir),
@@ -512,11 +537,127 @@ public static class CommandLineParser
             Musl: musl,
             EnabledArchs: enabledArchs,
             Release: release,
+            RepoUrl: repoUrl,
             Packages: packages,
             KeepWorkDir: keepWorkDir,
             NoPackage: noPackage,
             PyVersion: pyVersion);
 
+        return true;
+    }
+
+    private static bool TryReadPackageListFile(string path, out string[]? packages, out string? release, out string? repoUrl)
+    {
+        packages = null;
+        release = null;
+        repoUrl = null;
+
+        if (!File.Exists(path))
+        {
+            Log.Error($"--package-list file '{path}' does not exist.");
+            return false;
+        }
+
+        var result = new List<string>();
+        foreach (var rawLine in File.ReadAllLines(path))
+        {
+            var line = rawLine;
+            var commentStart = line.IndexOf('#');
+            if (commentStart >= 0)
+            {
+                line = line[..commentStart];
+            }
+
+            line = line.Trim();
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            var colon = line.IndexOf(':');
+            if (colon > 0)
+            {
+                var key = line[..colon].Trim();
+                if (key is "repo-url" or "release")
+                {
+                    var value = line[(colon + 1)..].Trim();
+                    if (value.Length == 0)
+                    {
+                        Log.Error($"--package-list: directive '{key}:' in '{path}' has no value.");
+                        return false;
+                    }
+                    if (key == "repo-url")
+                    {
+                        repoUrl = value;
+                    }
+                    else
+                    {
+                        release = value;
+                    }
+                    continue;
+                }
+            }
+
+            result.Add(line);
+        }
+
+        if (result.Count == 0)
+        {
+            Log.Error($"--package-list file '{path}' contained no packages.");
+            return false;
+        }
+
+        packages = result.ToArray();
+        return true;
+    }
+
+    private static bool TryCombinePackageInputs(string[]? baseList, string[]? deltas, out string[]? combined)
+    {
+        if (baseList == null)
+        {
+            combined = deltas;
+            return true;
+        }
+
+        if (deltas == null)
+        {
+            combined = baseList;
+            return true;
+        }
+
+        var result = new List<string>(baseList);
+        foreach (var entry in deltas)
+        {
+            if (entry.StartsWith('-'))
+            {
+                var name = entry[1..];
+                if (name.Length == 0)
+                {
+                    Log.Error("--packages contains an empty removal entry ('-' with no name).");
+                    combined = null;
+                    return false;
+                }
+                result.RemoveAll(p => string.Equals(p, name, StringComparison.Ordinal));
+            }
+            else
+            {
+                var name = entry.StartsWith('+')
+                    ? entry[1..]
+                    : entry;
+                if (name.Length == 0)
+                {
+                    Log.Error("--packages contains an empty addition entry ('+' with no name).");
+                    combined = null;
+                    return false;
+                }
+                if (!result.Any(p => string.Equals(p, name, StringComparison.Ordinal)))
+                {
+                    result.Add(name);
+                }
+            }
+        }
+
+        combined = result.ToArray();
         return true;
     }
 
@@ -617,8 +758,17 @@ public static class CommandLineParser
               --x32                 Build x86 (i686) cross sysroot
               --glibc               Build Debian glibc cross sysroots
               --musl                Build Alpine musl cross sysroots
-              -r, --release <suite> Override Debian release (e.g. bookworm, sid)
-              -p, --packages <pkgs> Override base packages (comma-separated)
+              -r, --release <suite> Override release. For Debian: bookworm, sid, etc.
+                                    For Alpine: latest-stable, edge, v3.20, etc.
+              -p, --packages <pkgs> Override base packages (comma-separated). When used
+                                    alongside --package-list, entries are deltas: plain
+                                    'pkg' (or '+pkg') adds, '-pkg' removes.
+              --package-list <file> Read package list from file (one per line; '#' for
+                                    comments; blank lines ignored). Overrides hardcoded
+                                    defaults for both Alpine and Debian builders. May
+                                    include 'release: <suite>' and 'repo-url: <url>'
+                                    directive lines. CLI '--release' wins over the file
+                                    directive.
               --keep-work-dir       Do not delete musl working directories
               --no-package          Skip creating tar archives (implies --keep-work-dir)
               --py-version <ver>    Python version for host sysroot (default: 3.12.3)

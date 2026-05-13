@@ -1,4 +1,4 @@
-namespace Std.BuildTools.Clang;
+namespace Std.BuildTools.Clang.Sysroots;
 
 internal class StaticPythonBuilder
 {
