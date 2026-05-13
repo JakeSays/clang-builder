@@ -19,11 +19,19 @@ The host toolchain (clang, lld, lldb, llvm-\*) is fully statically linked agains
 
 ---
 
+## Project Structure
+
+The build tooling is split into three .NET 10 projects under the solution file `ClangBuilder.slnx`:
+
+| Project | Binary | Description |
+|---------|--------|-------------|
+| `ToolchainBuilder/` | `toolchain-builder` | Builds and packages the LLVM toolchain |
+| `SysrootBuilder/` | `sysroot-builder` | Builds glibc (Debian) and musl (Alpine) sysroots |
+| `Common/` | *(library)* | Shared utilities used by both tools |
+
+---
+
 ## Building
-
-The toolchain is built using **ToolchainTools**, a .NET 10 CLI application in the `ToolchainTools/` directory.
-
-A pre-built binary is included at `prebuilts/clang-builder` for use without a .NET installation.
 
 ### Prerequisites
 
@@ -34,10 +42,12 @@ sudo apt-get install -y cmake ninja-build git python3 curl xz-utils patchelf \
 
 QEMU is used to run cross-compiled test binaries on the build machine.
 
-### Run the build
+### Run the toolchain build
+
+A pre-built `toolchain-builder` binary is included at `prebuilts/toolchain-builder`.
 
 ```bash
-./prebuilts/clang-builder build \
+./prebuilts/toolchain-builder build \
   --llvm-version 22.1.2 \
   --all \
   --prebuilts-dir ./prebuilts \
@@ -50,16 +60,7 @@ QEMU is used to run cross-compiled test binaries on the build machine.
 
 All prebuilts (bootstrap compiler and cross sysroots) are read from `--prebuilts-dir` and stored in Git LFS.
 
-### Building ToolchainTools from source
-
-If you need to rebuild the tool itself, install the [.NET 10 SDK](https://dotnet.microsoft.com/download) and run:
-
-```bash
-dotnet publish -c Release -r linux-x64 -o ./out/toolchain-tools \
-  ToolchainTools/ToolchainTools.csproj
-```
-
-### Options
+### Build options
 
 | Option | Description |
 |--------|-------------|
@@ -74,6 +75,52 @@ dotnet publish -c Release -r linux-x64 -o ./out/toolchain-tools \
 | `--package` | Package the toolchain after a successful build |
 | `--keep-work-dir` | Do not delete the work directory after the build |
 | `--force-reconfigure` | Re-run CMake configure even if already configured |
+
+### Build sysroots
+
+A pre-built `sysroot-builder` binary is included at `prebuilts/sysroot-builder`.
+
+```bash
+# Build an Alpine musl host sysroot
+./prebuilts/sysroot-builder make-sysroot \
+  --host \
+  --output-dir ./prebuilts \
+  --work-dir   /tmp/sysroot-work
+
+# Build Debian glibc cross sysroots for all architectures
+./prebuilts/sysroot-builder make-sysroot \
+  --glibc --all \
+  --output-dir ./prebuilts \
+  --work-dir   /tmp/sysroot-work
+```
+
+A `--package-list <file>` option overrides the default package set. The file contains one package per line (`#` comments and blank lines are ignored) and may include `release:` and `repo-url:` directives:
+
+```
+# my custom sysroot
+release: bookworm
+repo-url: http://my-mirror.internal/debian
+
+libc6-dev
+linux-libc-dev
+zlib1g-dev
+```
+
+Use `--packages` alongside `--package-list` to add or remove individual packages (`+pkg` or plain `pkg` to add, `-pkg` to remove).
+
+### Building from source
+
+Install the [.NET 10 SDK](https://dotnet.microsoft.com/download), then:
+
+```bash
+# Build toolchain-builder
+dotnet publish -c Release -r linux-x64 -o ./out/toolchain-builder \
+  ToolchainBuilder/ToolchainBuilder.csproj
+
+# Build sysroot-builder
+dotnet publish -c Release -r linux-x64 -o ./out/sysroot-builder \
+  SysrootBuilder/SysrootBuilder.csproj
+```
 
 ---
 

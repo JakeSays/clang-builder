@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="ToolchainBuilder/ToolchainBuilder.csproj" />
+  <Project Path="SysrootBuilder/SysrootBuilder.csproj" />
+  <Project Path="Common/Common.csproj" />
+</Solution>
