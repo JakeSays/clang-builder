@@ -63,14 +63,7 @@ public class DebianSysrootBuilder
             FixSymlinks();
             FlattenMultiarchPaths();
 
-            if (!await CreateArchive())
-            {
-                return false;
-            }
-
-            Cleanup();
-            Log.Info(LogColor.Green, "\nBuild complete!");
-            return true;
+            return await CreateArchive();
         }
     }
 
@@ -414,7 +407,6 @@ public class DebianSysrootBuilder
             return false;
         }
 
-        Log.Info(LogColor.Green, $"Archive saved to: {tarPath}");
         return true;
     }
 

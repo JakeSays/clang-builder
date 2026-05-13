@@ -3,16 +3,23 @@ using Std.BuildTools.Common;
 
 namespace Std.BuildTools.Sysroots;
 
+public enum CommandLineResult
+{
+    Help,
+    Success,
+    Failure
+}
+
 public static class CommandLineParser
 {
-    public static bool ParseSysroot(string[] args, out SysrootArgs sysrootArgs)
+    public static CommandLineResult ParseSysroot(string[] args, out SysrootArgs sysrootArgs)
     {
         sysrootArgs = null!;
 
         if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
         {
             PrintSysrootUsage();
-            return false;
+            return CommandLineResult.Help;
         }
 
         string? outputDir = null;
@@ -67,21 +74,21 @@ public static class CommandLineParser
                     outputDir = NextArg(args, ref i, "--output-dir");
                     if (outputDir == null)
                     {
-                        return false;
+                        return CommandLineResult.Failure;
                     }
                     break;
                 case "--work-dir":
                     workDir = NextArg(args, ref i, "--work-dir");
                     if (workDir == null)
                     {
-                        return false;
+                        return CommandLineResult.Failure;
                     }
                     break;
                 case "-r" or "--release":
                     release = NextArg(args, ref i, "--release");
                     if (release == null)
                     {
-                        return false;
+                        return CommandLineResult.Failure;
                     }
                     break;
                 case "-p" or "--packages":
@@ -89,7 +96,7 @@ public static class CommandLineParser
                     var val = NextArg(args, ref i, "--packages");
                     if (val == null)
                     {
-                        return false;
+                        return CommandLineResult.Failure;
                     }
                     packagesArg = val.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     break;
@@ -99,11 +106,11 @@ public static class CommandLineParser
                     var val = NextArg(args, ref i, "--package-list");
                     if (val == null)
                     {
-                        return false;
+                        return CommandLineResult.Failure;
                     }
                     if (!TryReadPackageListFile(val, out packageListFile, out packageListRelease, out packageListRepoUrl))
                     {
-                        return false;
+                        return CommandLineResult.Failure;
                     }
                     break;
                 }
@@ -119,7 +126,7 @@ public static class CommandLineParser
                 default:
                     Log.Error($"Unknown option '{args[i]}'.");
                     PrintSysrootUsage();
-                    return false;
+                    return CommandLineResult.Failure;
             }
         }
 
@@ -128,33 +135,30 @@ public static class CommandLineParser
         if (!host && !hostX64 && !hasCrossArch)
         {
             Log.Error("Specify at least one target: --host, --host-x64, --x64, --aarch64, --armv7, --riscv64, --x32");
-            PrintSysrootUsage();
-            return false;
+            return CommandLineResult.Failure;
         }
 
         if (hasCrossArch && !glibc && !musl)
         {
             Log.Error("Cross-arch targets require --glibc, --musl, or both.");
-            return false;
+            return CommandLineResult.Failure;
         }
 
         if (string.IsNullOrWhiteSpace(outputDir))
         {
             Log.Error("--output-dir is required.");
-            PrintSysrootUsage();
-            return false;
+            return CommandLineResult.Failure;
         }
 
         if (string.IsNullOrWhiteSpace(workDir))
         {
             Log.Error("--work-dir is required.");
-            PrintSysrootUsage();
-            return false;
+            return CommandLineResult.Failure;
         }
 
         if (!TryCombinePackageInputs(packageListFile, packagesArg, out var packages))
         {
-            return false;
+            return CommandLineResult.Failure;
         }
 
         release ??= packageListRelease;
@@ -175,7 +179,7 @@ public static class CommandLineParser
             NoPackage: noPackage,
             PyVersion: pyVersion);
 
-        return true;
+        return CommandLineResult.Success;
     }
 
     private static bool TryReadPackageListFile(string path, out string[]? packages, out string? release, out string? repoUrl)
@@ -304,10 +308,10 @@ public static class CommandLineParser
         return args[++i];
     }
 
-    private static void PrintSysrootUsage()
+    public static void PrintSysrootUsage()
     {
         Log.Info("""
-            Usage: sysroot-builder make-sysroot [options]
+            Usage: sysroot-builder [options]
 
             Options:
               --output-dir <dir>    Output directory for archives [required]

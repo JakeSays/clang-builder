@@ -8,20 +8,19 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        if (args.Length == 0)
-        {
-            PrintHelp();
-            return 1;
-        }
-
         var stopwatch = Stopwatch.StartNew();
+        var displayTiming = false;
         try
         {
-            return args[0] switch
+            var result = await BuildMakeSysrootCommand.Execute(args);
+            if (result != CommandLineResult.Success)
             {
-                "--help" or "-h" => PrintHelpAndReturn(),
-                _ => await BuildMakeSysrootCommand.Execute(args)
-            };
+                return 1;
+            }
+
+            displayTiming = true;
+
+            return 0;
         }
         catch (Exception ex)
         {
@@ -31,7 +30,11 @@ public static class Program
         finally
         {
             stopwatch.Stop();
-            Log.Info(LogColor.HotPink, $@"Total time: {stopwatch.Elapsed:hh\:mm\:ss}");
+
+            if (displayTiming)
+            {
+                Log.Info(LogColor.HotPink, $@"Total time: {stopwatch.Elapsed:hh\:mm\:ss}");
+            }
         }
     }
 

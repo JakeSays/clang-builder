@@ -4,8 +4,8 @@ using Std.BuildTools.Common;
 namespace Std.BuildTools.Sysroots;
 
 public record SysrootArgs(
-    string OutputDir,
-    string WorkDir,
+    FilePath OutputDir,
+    FilePath WorkDir,
     bool Host,
     bool HostX64,
     bool Glibc,
@@ -22,11 +22,29 @@ public record SysrootArgs(
     {
         get
         {
-            if (EnabledArchs.IsSet(TargetArch.X64)) yield return "x64";
-            if (EnabledArchs.IsSet(TargetArch.Aarch64)) yield return "aarch64";
-            if (EnabledArchs.IsSet(TargetArch.Armv7)) yield return "armv7";
-            if (EnabledArchs.IsSet(TargetArch.Riscv64)) yield return "riscv64";
-            if (EnabledArchs.IsSet(TargetArch.X86)) yield return "x86";
+            if (EnabledArchs.IsSet(TargetArch.X64))
+            {
+                yield return "x64";
+            };
+            if (EnabledArchs.IsSet(TargetArch.Aarch64))
+            {
+                yield return "aarch64";
+            }
+
+            if (EnabledArchs.IsSet(TargetArch.Armv7))
+            {
+                yield return "armv7";
+            }
+
+            if (EnabledArchs.IsSet(TargetArch.Riscv64))
+            {
+                yield return "riscv64";
+            }
+
+            if (EnabledArchs.IsSet(TargetArch.X86))
+            {
+                yield return "x86";
+            }
         }
     }
 
@@ -34,11 +52,30 @@ public record SysrootArgs(
     {
         get
         {
-            if (EnabledArchs.IsSet(TargetArch.X64)) yield return "x64";
-            if (EnabledArchs.IsSet(TargetArch.Aarch64)) yield return "aarch64";
-            if (EnabledArchs.IsSet(TargetArch.Armv7)) yield return "armv7";
-            if (EnabledArchs.IsSet(TargetArch.Riscv64)) yield return "riscv64";
-            if (EnabledArchs.IsSet(TargetArch.X86)) yield return "x86";
+            if (EnabledArchs.IsSet(TargetArch.X64))
+            {
+                yield return "x64";
+            }
+
+            if (EnabledArchs.IsSet(TargetArch.Aarch64))
+            {
+                yield return "aarch64";
+            }
+
+            if (EnabledArchs.IsSet(TargetArch.Armv7))
+            {
+                yield return "armv7";
+            }
+
+            if (EnabledArchs.IsSet(TargetArch.Riscv64))
+            {
+                yield return "riscv64";
+            }
+
+            if (EnabledArchs.IsSet(TargetArch.X86))
+            {
+                yield return "x86";
+            }
         }
     }
 }

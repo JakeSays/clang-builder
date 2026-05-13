@@ -65,28 +65,26 @@ public class AlpineSysrootBuilder
     private readonly string _mirror;
     private readonly string _release;
 
+    private SysrootArgs _args;
+
     public AlpineSysrootBuilder(
+        SysrootArgs args,
         FilePath workDir,
         FilePath outputPath,
         string apkArch,
-        bool buildPython,
-        string pyVersion,
-        bool keepWorkDir,
-        bool noPackage,
-        string[]? packageOverride,
-        string? mirrorOverride,
-        string? releaseOverride)
+        bool buildPython)
     {
+        _args = args;
         _workDir = workDir;
         _outputPath = outputPath;
         _apkArch = apkArch;
         _buildPython = buildPython;
-        _pyVersion = pyVersion;
-        _keepWorkDir = keepWorkDir;
-        _noPackage = noPackage;
-        _packageOverride = packageOverride;
-        _mirror = (mirrorOverride ?? DefaultAlpineMirror).TrimEnd('/');
-        _release = releaseOverride ?? DefaultAlpineRelease;
+        _pyVersion = args.PyVersion;
+        _keepWorkDir = args.KeepWorkDir;
+        _noPackage = args.NoPackage;
+        _packageOverride = args.Packages;
+        _mirror = (args.RepoUrl ?? DefaultAlpineMirror).TrimEnd('/');
+        _release = args.Release ?? DefaultAlpineRelease;
     }
 
     public async Task<bool> Build()
@@ -119,28 +117,11 @@ public class AlpineSysrootBuilder
 
         if (_noPackage)
         {
-            Log.Info(LogColor.Green, $"Success! Sysroot is ready at: {_workDir}");
             Log.Info("    (--no-package flag was used, skipping tar archive creation)");
             return true;
         }
 
-        if (!await CreateArchive())
-        {
-            return false;
-        }
-
-        if (!_keepWorkDir)
-        {
-            Log.Info($"Deleting working directory '{_workDir}'...");
-            FileUtils.DeleteDirectory(_workDir);
-        }
-        else
-        {
-            Log.Info($"Kept working directory at '{_workDir}'.");
-        }
-
-        Log.Info(LogColor.Green, $"Success! Sysroot archive is ready: {_outputPath}");
-        return true;
+        return await CreateArchive();
     }
 
     private async Task<bool> RunApk(FilePath apkStatic, string[] packages)

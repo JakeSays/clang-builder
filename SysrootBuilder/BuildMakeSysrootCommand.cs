@@ -5,19 +5,21 @@ namespace Std.BuildTools.Sysroots;
 
 public static class BuildMakeSysrootCommand
 {
-    public static async Task<int> Execute(string[] args)
+    public static async Task<CommandLineResult> Execute(string[] args)
     {
-        if (!CommandLineParser.ParseSysroot(args, out var sysrootArgs))
+        CommandLineResult result;
+        if ((result = CommandLineParser.ParseSysroot(args, out var sysrootArgs)) != CommandLineResult.Success)
         {
-            return 1;
+            return result;
         }
 
-        var outputDir = new FilePath(sysrootArgs.OutputDir);
-        var workDir = new FilePath(sysrootArgs.WorkDir);
+        var outputDir = sysrootArgs.OutputDir;
+        var workDir = sysrootArgs.WorkDir;
         Directory.CreateDirectory(outputDir);
         Directory.CreateDirectory(workDir);
 
         Log.Initialize(workDir);
+
 
         if (sysrootArgs.Host)
         {
@@ -25,26 +27,22 @@ public static class BuildMakeSysrootCommand
             if (hostWorkDir.Exists)
             {
                 Log.Error($"ERROR: Host musl work directory '{hostWorkDir}' already exists. Delete it first.");
-                return 1;
+                return CommandLineResult.Failure;
             }
 
             var outputPath = outputDir / "sysroot-x64-musl-host.tar.xz";
             var builder = new AlpineSysrootBuilder(
+                sysrootArgs,
                 hostWorkDir,
                 outputPath,
                 apkArch: "x86_64",
-                buildPython: true,
-                pyVersion: sysrootArgs.PyVersion,
-                keepWorkDir: sysrootArgs.KeepWorkDir,
-                noPackage: sysrootArgs.NoPackage,
-                packageOverride: sysrootArgs.Packages,
-                mirrorOverride: sysrootArgs.RepoUrl,
-                releaseOverride: sysrootArgs.Release);
+                buildPython: true);
 
             if (!await builder.Build())
             {
-                return 1;
+                return CommandLineResult.Failure;
             }
+            Log.Info(LogColor.Green, $"Success! Sysroot archive is ready: {outputPath}");
         }
 
         if (sysrootArgs.HostX64)
@@ -53,12 +51,15 @@ public static class BuildMakeSysrootCommand
             var suite = sysrootArgs.Release ?? archConfig.Suite;
             var mirror = sysrootArgs.RepoUrl ?? archConfig.Mirror;
             var packages = sysrootArgs.Packages ?? archConfig.DefaultPackages;
+            const string archiveName = "sysroot-x64-glibc-host.tar.xz";
 
-            var builder = new DebianSysrootBuilder(workDir, outputDir, "host-x64", archConfig with { Suite = suite, Mirror = mirror }, packages, "sysroot-x64-glibc-host.tar.xz");
+            var builder = new DebianSysrootBuilder(workDir, outputDir, "host-x64", archConfig with { Suite = suite, Mirror = mirror }, packages, archiveName);
             if (!await builder.Build())
             {
-                return 1;
+                return CommandLineResult.Failure;
             }
+            var outputPath = outputDir / archiveName;
+            Log.Info(LogColor.Green, $"Success! Sysroot archive is ready: {outputPath}");
         }
 
         if (sysrootArgs.Glibc)
@@ -69,12 +70,16 @@ public static class BuildMakeSysrootCommand
                 var suite = sysrootArgs.Release ?? archConfig.Suite;
                 var mirror = sysrootArgs.RepoUrl ?? archConfig.Mirror;
                 var packages = sysrootArgs.Packages ?? archConfig.DefaultPackages;
+                var archiveName = $"sysroot-{arch}-glibc-cross.tar.xz";
 
-                var builder = new DebianSysrootBuilder(workDir, outputDir, arch, archConfig with { Suite = suite, Mirror = mirror }, packages, $"sysroot-{arch}-glibc-cross.tar.xz");
+                var builder = new DebianSysrootBuilder(workDir, outputDir, arch, archConfig with { Suite = suite, Mirror = mirror }, packages, archiveName);
                 if (!await builder.Build())
                 {
-                    return 1;
+                    return CommandLineResult.Failure;
                 }
+
+                var outputPath = outputDir / archiveName;
+                Log.Info(LogColor.Green, $"Success! Sysroot archive is ready: {outputPath}");
             }
         }
 
@@ -86,31 +91,43 @@ public static class BuildMakeSysrootCommand
                 if (muslWorkDir.Exists)
                 {
                     Log.Error($"ERROR: Musl work directory '{muslWorkDir}' already exists. Delete it first.");
-                    return 1;
+                    return CommandLineResult.Failure;
                 }
 
                 var apkArch = ToApkArch(arch);
                 var outputPath = outputDir / $"sysroot-{arch}-musl-cross.tar.xz";
                 var builder = new AlpineSysrootBuilder(
+                    sysrootArgs,
                     muslWorkDir,
                     outputPath,
                     apkArch,
-                    buildPython: false,
-                    pyVersion: sysrootArgs.PyVersion,
-                    keepWorkDir: sysrootArgs.KeepWorkDir,
-                    noPackage: sysrootArgs.NoPackage,
-                    packageOverride: sysrootArgs.Packages,
-                    mirrorOverride: sysrootArgs.RepoUrl,
-                    releaseOverride: sysrootArgs.Release);
+                    buildPython: false);
 
                 if (!await builder.Build())
                 {
-                    return 1;
+                    return CommandLineResult.Failure;
                 }
+
+                Log.Info(LogColor.Green, $"Success! Sysroot archive is ready: {outputPath}");
             }
         }
 
-        return 0;
+        Cleanup(sysrootArgs);
+
+        return CommandLineResult.Success;
+    }
+
+    private static void Cleanup(SysrootArgs args)
+    {
+        if (!args.KeepWorkDir)
+        {
+            Log.Info($"Deleting working directory '{args.WorkDir}'...");
+            FileUtils.DeleteDirectory(args.WorkDir);
+        }
+        else
+        {
+            Log.Info($"Kept working directory at '{args.WorkDir}'.");
+        }
     }
 
     private static string ToApkArch(string arch) => arch switch
