@@ -146,9 +146,6 @@ jobs:
           tar -xpzf "$RUNNER_TEMP/stage1-artifact/install-stage1.tar.gz" \
             -C "$RUNNER_TEMP/toolchain-work"
 
-      - name: Mark pre-build state
-        run: touch "$RUNNER_TEMP/before-build"
-
       - name: Build lane (${{ matrix.arch }}-${{ matrix.libc }})
         run: |
           "$RUNNER_TEMP/toolchain-tools/clang-builder" build \
@@ -159,14 +156,8 @@ jobs:
             --output-dir    "$GITHUB_WORKSPACE" \
             --jobs          "$JOBS" \
             --build-target  "${{ matrix.targets }}" \
+            --lane-diff     "$RUNNER_TEMP/install-lane.tar.gz" \
             --keep-work-dir
-
-      - name: Pack only new/changed files
-        run: |
-          INSTALL_DIR="$RUNNER_TEMP/toolchain-work/clang-${LLVM_VERSION}-linux-x86_64"
-          cd "$INSTALL_DIR"
-          find . -newer "$RUNNER_TEMP/before-build" \( -type f -o -type l \) -print0 \
-            | tar --null --owner=0 --group=0 -czf "$RUNNER_TEMP/install-lane.tar.gz" -T -
 
       - name: Upload lane diff
         uses: actions/upload-artifact@v4

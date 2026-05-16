@@ -29,6 +29,7 @@ public class BuildConfiguration
     public bool KeepWorkDir { get; init; }
     public bool Package { get; init; }
     public bool PackageOnly { get; init; }
+    public string? LaneDiff { get; init; }
     public bool RunTestsOnly { get; init; }
     public TargetArch? TestArch { get; init; }
     public FilePath? X64Sysroot { get; init; }

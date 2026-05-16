@@ -74,11 +74,27 @@ public static class BuildMainToolchainCommand
                 return 1;
             }
 
+            LaneDiffPackager? laneDiff = null;
+            if (config.LaneDiff != null)
+            {
+                laneDiff = new LaneDiffPackager(config.InstallDir);
+                laneDiff.Snapshot();
+            }
+
             var builder = new LlvmCrossBuilder(config);
             if (!await builder.Build())
             {
                 Log.Error("Build failed. Aborting post-build steps.");
                 return 1;
+            }
+
+            if (laneDiff != null)
+            {
+                if (!await laneDiff.PackDiff(config.LaneDiff!))
+                {
+                    Log.Error("ERROR: Failed to write lane diff tarball.");
+                    return 1;
+                }
             }
 
             if (config.RunTests)

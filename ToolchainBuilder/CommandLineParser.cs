@@ -29,6 +29,7 @@ public static class CommandLineParser
         TargetArch? testArch = null;
         var package = false;
         var packageOnly = false;
+        string? laneDiff = null;
         var threads = 0;
 
         for (int i = 0; i < args.Length; i++)
@@ -148,6 +149,13 @@ public static class CommandLineParser
                     packageOnly = true;
                     package = true;
                     break;
+                case "--lane-diff":
+                    laneDiff = NextArg(args, ref i, "--lane-diff");
+                    if (laneDiff == null)
+                    {
+                        return false;
+                    }
+                    break;
                 case "--threads":
                 {
                     var val = NextArg(args, ref i, "--threads");
@@ -199,6 +207,12 @@ public static class CommandLineParser
             return false;
         }
 
+        if (laneDiff != null && (packageOnly || runTestsOnly))
+        {
+            Log.Error("--lane-diff is not compatible with --package-only or --run-tests-only.");
+            return false;
+        }
+
         if (!Directory.Exists(prebuiltsDir))
         {
             Log.Error($"Prebuilts directory '{prebuiltsDir}' does not exist.");
@@ -247,6 +261,7 @@ public static class CommandLineParser
             KeepWorkDir = keepWorkDir,
             Package = package,
             PackageOnly = packageOnly,
+            LaneDiff = laneDiff != null ? Path.GetFullPath(laneDiff) : null,
             RunTestsOnly = runTestsOnly,
             TestArch = testArch,
         };
@@ -432,6 +447,9 @@ public static class CommandLineParser
               --package                Package the toolchain after build
               --package-only           Skip the build entirely; just package an already-built
                                        install dir (implies --package)
+              --lane-diff <path>       After build, pack files added or modified during the
+                                       build into <path> (tar.gz). Use for multi-lane CI where
+                                       each lane ships only its delta over a shared stage1.
               --threads <n>            zstd compression threads (requires --package, default: 0 = auto)
             """);
     }
