@@ -1,6 +1,6 @@
-# Clang Cross-Compilation Toolchain
+# Clang Cross-Compilation Toolchain Builder
 
-Builds a complete **Clang + compiler-rt + libc++ + LLDB** toolchain targeting:
+Build tooling that produces a complete **Clang + compiler-rt + libc++ + LLDB** toolchain for Linux targeting:
 
 | Target | Triple |
 |--------|--------|
@@ -17,6 +17,8 @@ Builds a complete **Clang + compiler-rt + libc++ + LLDB** toolchain targeting:
 
 The host toolchain (clang, lld, lldb, llvm-\*) is fully statically linked against musl libc and requires no runtime dependencies on the build machine.
 
+> **Looking for prebuilt toolchains?** This repository is the builder only. Download ready-to-use toolchains, and read usage and remote-debugging docs, at [clang-releases](https://github.com/JakeSays/clang-releases).
+
 ---
 
 ## Project Structure
@@ -25,7 +27,7 @@ The build tooling is split into three .NET 10 projects under the solution file `
 
 | Project | Binary | Description |
 |---------|--------|-------------|
-| `ToolchainBuilder/` | `toolchain-builder` | Builds and packages the LLVM toolchain |
+| `ToolchainBuilder/` | `clang-builder` | Builds and packages the LLVM toolchain |
 | `SysrootBuilder/` | `sysroot-builder` | Builds glibc (Debian) and musl (Alpine) sysroots |
 | `Common/` | *(library)* | Shared utilities used by both tools |
 
@@ -44,10 +46,10 @@ QEMU is used to run cross-compiled test binaries on the build machine.
 
 ### Run the toolchain build
 
-A pre-built `toolchain-builder` binary is included at `prebuilts/toolchain-builder`.
+A pre-built `clang-builder` binary is included at `prebuilts/clang-builder`.
 
 ```bash
-./prebuilts/toolchain-builder build \
+./prebuilts/clang-builder build \
   --llvm-version 22.1.2 \
   --all \
   --prebuilts-dir ./prebuilts \
@@ -113,61 +115,11 @@ Use `--packages` alongside `--package-list` to add or remove individual packages
 Install the [.NET 10 SDK](https://dotnet.microsoft.com/download), then:
 
 ```bash
-# Build toolchain-builder
-dotnet publish -c Release -r linux-x64 -o ./out/toolchain-builder \
+# Build clang-builder
+dotnet publish -c Release -r linux-x64 -o ./out/clang-builder \
   ToolchainBuilder/ToolchainBuilder.csproj
 
 # Build sysroot-builder
 dotnet publish -c Release -r linux-x64 -o ./out/sysroot-builder \
   SysrootBuilder/SysrootBuilder.csproj
 ```
-
----
-
-## CI
-
-A GitHub Actions workflow (`.github/workflows/build-clang-toolchain.yml`) builds, tests, and packages the toolchain and publishes it as a GitHub Release.
-
-A companion workflow (`.github/workflows/check-clang-version.yml`) runs daily, checks for new LLVM releases, and triggers the build automatically when a new version is found.
-
----
-
-## Using the Toolchain
-
-The default target triple is `x86_64-linux-gnu`. Pass `--target` to cross-compile:
-
-```bash
-TOOLCHAIN=/path/to/clang-22.1.2-linux-x86_64
-
-# Cross-compile for aarch64 glibc
-$TOOLCHAIN/bin/clang++ \
-  --target=aarch64-linux-gnu \
-  --sysroot=$TOOLCHAIN/sysroots/aarch64 \
-  -stdlib=libc++ -rtlib=compiler-rt \
-  hello.cpp -o hello
-
-# Cross-compile for aarch64 musl (static)
-$TOOLCHAIN/bin/clang++ \
-  --target=aarch64-linux-musl \
-  --sysroot=$TOOLCHAIN/sysroots/aarch64-musl \
-  -stdlib=libc++ -rtlib=compiler-rt -static \
-  hello.cpp -o hello
-```
-
-Clang finds compiler-rt and libc++ automatically via its resource directory — no manual `-L` or `-I` flags needed.
-
----
-
-## Remote Debugging with LLDB
-
-Copy the appropriate `lldb-server` binary from `bin/<arch>-linux/` to the target device and start it:
-
-```bash
-# Platform mode — attach to any process or launch new ones
-lldb-server platform --listen "*:9999" --server
-
-# gdbserver mode — debug a single process
-lldb-server gdbserver 0.0.0.0:9999 -- /path/to/binary
-```
-
-Then connect from the host using `lldb`. Both binaries are built from the same LLVM version for protocol compatibility. The `lldb-server` binary is statically linked against musl and has no runtime dependencies.
