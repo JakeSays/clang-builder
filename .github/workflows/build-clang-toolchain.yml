@@ -59,7 +59,7 @@ jobs:
           dotnet publish -c Release \
             -r linux-x64 \
             -o "$RUNNER_TEMP/toolchain-tools" \
-            ToolchainTools/ToolchainTools.csproj
+            ToolchainBuilder/ToolchainBuilder.csproj
 
       - name: Build stage1 host
         if: steps.stage1-cache.outputs.cache-hit != 'true'
