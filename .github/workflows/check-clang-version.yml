@@ -25,14 +25,16 @@ jobs:
       id: resolve
       env:
         GH_TOKEN: ${{ github.token }}
+        RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
       run: |
         # Fetch the latest LLVM release tag (format: llvmorg-X.Y.Z)
         LATEST_TAG=$(gh api repos/llvm/llvm-project/releases/latest --jq '.tag_name')
         VERSION="${LATEST_TAG#llvmorg-}"
         echo "Latest LLVM release: ${VERSION}"
 
-        # Check if we already have a release tag for this version
-        if gh release view "clang-${VERSION}" --repo "${{ github.repository }}" > /dev/null 2>&1; then
+        # Check if the release already exists in the clang-releases repo.
+        # Uses RELEASES_TOKEN so the read works whether or not that repo is public.
+        if GH_TOKEN="$RELEASES_TOKEN" gh release view "clang-${VERSION}" --repo "JakeSays/clang-releases" > /dev/null 2>&1; then
           echo "Release clang-${VERSION} already exists — nothing to do."
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "should_build=false" >> "$GITHUB_OUTPUT"

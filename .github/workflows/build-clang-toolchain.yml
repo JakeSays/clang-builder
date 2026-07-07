@@ -132,7 +132,7 @@ jobs:
           dotnet publish -c Release \
             -r linux-x64 \
             -o "$RUNNER_TEMP/toolchain-tools" \
-            ToolchainTools/ToolchainTools.csproj
+            ToolchainBuilder/ToolchainBuilder.csproj
 
       - name: Restore stage1 install
         uses: actions/download-artifact@v4
@@ -202,7 +202,7 @@ jobs:
           dotnet publish -c Release \
             -r linux-x64 \
             -o "$RUNNER_TEMP/toolchain-tools" \
-            ToolchainTools/ToolchainTools.csproj
+            ToolchainBuilder/ToolchainBuilder.csproj
 
       - name: Download all lane artifacts
         uses: actions/download-artifact@v4
@@ -234,9 +234,12 @@ jobs:
 
       - name: Create GitHub release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
           gh release create "clang-${LLVM_VERSION}" \
+            --repo JakeSays/clang-releases \
             --title "Clang ${LLVM_VERSION} Linux x86_64" \
             --notes "Clang/LLD/LLDB ${LLVM_VERSION} cross-compilation toolchain for Linux x86_64." \
-            "clang-${LLVM_VERSION}-linux-x86_64.tar.zst"
+            "clang-${LLVM_VERSION}-linux-x86_64.tar.zst" \
+            "clang+llvm-${LLVM_VERSION}-linux-x86_64-musl-dev.tar.zst" \
+            "clang-${LLVM_VERSION}-linux-x86_64-symbols.tar.zst"
