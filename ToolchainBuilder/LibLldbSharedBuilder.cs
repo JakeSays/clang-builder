@@ -108,6 +108,10 @@ public class LibLldbSharedBuilder
             .DefineQuoted("CMAKE_SHARED_LINKER_FLAGS", soLdFlags)
             .DefineQuoted("CMAKE_MODULE_LINKER_FLAGS", soLdFlags)
             .Define("CMAKE_SYSROOT", _sysroot)
+
+            // The prepper deletes the FindLibXml2.cmake LLVM ships, so without this the fallback is
+            // CMake's own — which searches the host through pkg-config rather than this sysroot.
+            .Define("CMAKE_MODULE_PATH", _config.CmakeModulesDir)
             .CmakeOn("CMAKE_BUILD_WITH_INSTALL_RPATH")
             .CmakeOn("LLVM_ENABLE_LLD")
             .CmakeOff("LLVM_BUILD_LLVM_DYLIB")

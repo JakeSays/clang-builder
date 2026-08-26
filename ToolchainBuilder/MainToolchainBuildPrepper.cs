@@ -89,6 +89,7 @@ public class MainToolchainBuildPrepper : BuildPrepper
                 return false;
             }
 
+            RemoveUpstreamLibXml2Module();
             GenerateCustomCmakeModules();
         }
         catch (Exception e)
@@ -106,6 +107,39 @@ public class MainToolchainBuildPrepper : BuildPrepper
         return true;
     }
 
+    /// <summary>
+    /// Removes the FindLibXml2.cmake LLVM ships, so the one written into the work dir is the one a
+    /// build loads.
+    /// </summary>
+    /// <remarks>
+    /// llvm/CMakeLists.txt does list(INSERT CMAKE_MODULE_PATH 0 ...) with its own module directory, so
+    /// anything it ships wins over -DCMAKE_MODULE_PATH. LLVM 23 added a FindLibXml2.cmake and 22 had
+    /// none, which is why the generated module stopped being loaded on the version bump.
+    /// <para>
+    /// Upstream's module searches for libxml2 with pkg-config hints and puts a static library's
+    /// transitive dependencies only on LibXml2::LibXml2Static — so a cross build reading the host's
+    /// pkg-config finds the host libxml2, and LibXml2::LibXml2 arrives with no link interface at all.
+    /// The generated one names the sysroot outright and puts liblzma on the plain target, which is
+    /// what Alpine's static libxml2.a needs for its xzlib.o.
+    /// </para>
+    /// <para>
+    /// Nothing in LLVM references the file by name — llvm/cmake/modules installs with a *.cmake glob —
+    /// so removing it costs the install tree one module a cross build should not use anyway.
+    /// </para>
+    /// </remarks>
+    private void RemoveUpstreamLibXml2Module()
+    {
+        var upstream = Config.SourceDir / "llvm" / "cmake" / "modules" / "FindLibXml2.cmake";
+
+        if (!File.Exists(upstream))
+        {
+            return;
+        }
+
+        File.Delete(upstream);
+        Log.Info($"  Removed: {upstream}");
+    }
+
     private void GenerateCustomCmakeModules()
     {
         Log.Info("Generating custom CMake modules...");
@@ -120,10 +154,33 @@ public class MainToolchainBuildPrepper : BuildPrepper
 
         // --- FindLibXml2.cmake ---
         const string findLibXml2Content = """
-# Custom FindLibXml2.cmake — adds liblzma as an interface dep so the lzma
-# symbols referenced by Alpine's static libxml2.a are resolved at link time.
-set(LIBXML2_INCLUDE_DIR "${CMAKE_SYSROOT}/usr/include/libxml2" CACHE PATH "")
-set(LIBXML2_LIBRARY     "${CMAKE_SYSROOT}/usr/lib/libxml2.a"   CACHE FILEPATH "")
+# Custom FindLibXml2.cmake — names the sysroot's libxml2 outright rather than searching for one, and
+# adds liblzma where that archive needs it.
+#
+# MainToolchainBuildPrepper deletes the FindLibXml2.cmake LLVM ships, which would otherwise win:
+# llvm/CMakeLists.txt inserts its own module directory at position 0 of CMAKE_MODULE_PATH. Upstream's
+# searches with pkg-config hints, which in a cross build reads the host's .pc files, and it puts a
+# static library's transitive dependencies only on LibXml2::LibXml2Static.
+set(LIBXML2_INCLUDE_DIRECTORY "${CMAKE_SYSROOT}/usr/include/libxml2")
+set(LIBXML2_ARCHIVE           "${CMAKE_SYSROOT}/usr/lib/libxml2.a")
+set(LIBLZMA_ARCHIVE           "${CMAKE_SYSROOT}/usr/lib/liblzma.a")
+
+# Set only where they are really there, so that a sysroot without libxml2 reports not found here
+# rather than at the link.
+if(EXISTS "${LIBXML2_INCLUDE_DIRECTORY}")
+  set(LIBXML2_INCLUDE_DIR "${LIBXML2_INCLUDE_DIRECTORY}" CACHE PATH "")
+endif()
+if(EXISTS "${LIBXML2_ARCHIVE}")
+  set(LIBXML2_LIBRARY "${LIBXML2_ARCHIVE}" CACHE FILEPATH "")
+endif()
+
+# Alpine builds libxml2 with xz support, so its xzlib.o needs liblzma; the Debian one does not, and
+# ships no static liblzma to link against either. The dependency follows the archive being present.
+set(LIBXML2_STATIC_DEPS)
+if(EXISTS "${LIBLZMA_ARCHIVE}")
+  list(APPEND LIBXML2_STATIC_DEPS "${LIBLZMA_ARCHIVE}")
+endif()
+
 set(LIBXML2_INCLUDE_DIRS "${LIBXML2_INCLUDE_DIR}")
 set(LIBXML2_LIBRARIES    "${LIBXML2_LIBRARY}")
 set(LIBXML2_DEFINITIONS  "")
@@ -139,15 +196,31 @@ include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(LibXml2
   REQUIRED_VARS LIBXML2_LIBRARY LIBXML2_INCLUDE_DIR
   VERSION_VAR   LIBXML2_VERSION_STRING)
-mark_as_advanced(LIBXML2_INCLUDE_DIR LIBXML2_LIBRARY)
 
-if(LibXml2_FOUND AND NOT TARGET LibXml2::LibXml2)
-  add_library(LibXml2::LibXml2 STATIC IMPORTED)
-  set_target_properties(LibXml2::LibXml2 PROPERTIES
-    IMPORTED_LOCATION             "${CMAKE_SYSROOT}/usr/lib/libxml2.a"
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SYSROOT}/usr/include/libxml2"
-    INTERFACE_LINK_LIBRARIES      "${CMAKE_SYSROOT}/usr/lib/liblzma.a")
+if(LibXml2_FOUND)
+  # The sysroot ships one libxml2 and it is the static one, so both targets name the same archive.
+  # LLVM_USE_STATIC_LIBXML2 picks the second (llvm/lib/WindowsManifest/CMakeLists.txt), and
+  # llvm/cmake/config-ix.cmake reads LIBXML2_STATIC_LIBRARY and LIBXML2_STATIC_DEPS beside it.
+  set(LIBXML2_STATIC_LIBRARY "${LIBXML2_LIBRARY}" CACHE FILEPATH "")
+
+  if(NOT TARGET LibXml2::LibXml2)
+    add_library(LibXml2::LibXml2 STATIC IMPORTED)
+    set_target_properties(LibXml2::LibXml2 PROPERTIES
+      IMPORTED_LOCATION             "${LIBXML2_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${LIBXML2_INCLUDE_DIR}"
+      INTERFACE_LINK_LIBRARIES      "${LIBXML2_STATIC_DEPS}")
+  endif()
+
+  if(NOT TARGET LibXml2::LibXml2Static)
+    add_library(LibXml2::LibXml2Static STATIC IMPORTED)
+    set_target_properties(LibXml2::LibXml2Static PROPERTIES
+      IMPORTED_LOCATION             "${LIBXML2_STATIC_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${LIBXML2_INCLUDE_DIR}"
+      INTERFACE_LINK_LIBRARIES      "${LIBXML2_STATIC_DEPS}")
+  endif()
 endif()
+
+mark_as_advanced(LIBXML2_INCLUDE_DIR LIBXML2_LIBRARY LIBXML2_STATIC_LIBRARY)
 """;
 
         var findLibXml2Path = Config.CmakeModulesDir / "FindLibXml2.cmake";

@@ -15,7 +15,10 @@ public static class SysrootArchConfigs
             [
                 "libc6-dev", "libgcc-12-dev", "zlib1g-dev",
                 "python3-dev", "libedit-dev", "libncurses-dev",
-                "libzstd-dev", "libxml2-dev", "libstdc++-12-dev", "gcc-12"
+                // libxml2.a is built with xz support, so its xzlib.o needs liblzma. Debian ships the
+                // static liblzma in liblzma-dev; without it a static libxml2 leaves lzma_code and
+                // three others undefined at link.
+                "libzstd-dev", "libxml2-dev", "liblzma-dev", "libstdc++-12-dev", "gcc-12"
             ]),
             ["x64"] = new("amd64", "http://deb.debian.org/debian", "bookworm",
                 ["libc6-dev", "linux-libc-dev", "zlib1g-dev"]),

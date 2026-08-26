@@ -51,20 +51,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build git python3 curl xz-utils patchelf rsync \
-            qemu-user qemu-user-static dotnet-sdk-10.0
-
-      - name: Build clang-builder
-        if: steps.stage1-cache.outputs.cache-hit != 'true'
-        run: |
-          dotnet publish -c Release \
-            -r linux-x64 \
-            -o "$RUNNER_TEMP/toolchain-tools" \
-            ToolchainBuilder/ToolchainBuilder.csproj
+            qemu-user qemu-user-static
 
       - name: Build stage1 host
         if: steps.stage1-cache.outputs.cache-hit != 'true'
         run: |
-          "$RUNNER_TEMP/toolchain-tools/clang-builder" build \
+          "$GITHUB_WORKSPACE/prebuilts/clang-builder" build \
             --llvm-version "$LLVM_VERSION" \
             --all \
             --prebuilts-dir "$GITHUB_WORKSPACE/prebuilts" \
@@ -125,14 +117,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build git python3 curl xz-utils patchelf rsync \
-            qemu-user qemu-user-static dotnet-sdk-10.0
-
-      - name: Build clang-builder
-        run: |
-          dotnet publish -c Release \
-            -r linux-x64 \
-            -o "$RUNNER_TEMP/toolchain-tools" \
-            ToolchainBuilder/ToolchainBuilder.csproj
+            qemu-user qemu-user-static
 
       - name: Restore stage1 install
         uses: actions/download-artifact@v4
@@ -148,7 +133,7 @@ jobs:
 
       - name: Build lane (${{ matrix.arch }}-${{ matrix.libc }})
         run: |
-          "$RUNNER_TEMP/toolchain-tools/clang-builder" build \
+          "$GITHUB_WORKSPACE/prebuilts/clang-builder" build \
             --llvm-version "$LLVM_VERSION" \
             --${{ matrix.arch }} \
             --prebuilts-dir "$GITHUB_WORKSPACE/prebuilts" \
@@ -195,14 +180,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build git python3 curl xz-utils patchelf rsync \
-            qemu-user qemu-user-static dotnet-sdk-10.0
-
-      - name: Build clang-builder
-        run: |
-          dotnet publish -c Release \
-            -r linux-x64 \
-            -o "$RUNNER_TEMP/toolchain-tools" \
-            ToolchainBuilder/ToolchainBuilder.csproj
+            qemu-user qemu-user-static
 
       - name: Download all lane artifacts
         uses: actions/download-artifact@v4
@@ -222,7 +200,7 @@ jobs:
 
       - name: Package toolchain
         run: |
-          "$RUNNER_TEMP/toolchain-tools/clang-builder" build \
+          "$GITHUB_WORKSPACE/prebuilts/clang-builder" build \
             --llvm-version "$LLVM_VERSION" \
             --all \
             --prebuilts-dir "$GITHUB_WORKSPACE/prebuilts" \
