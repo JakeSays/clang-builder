@@ -6,7 +6,26 @@ namespace Std.BuildTools.Sysroots;
 public class AlpineSysrootBuilder
 {
     private const string DefaultAlpineMirror = "https://dl-cdn.alpinelinux.org/alpine";
-    private const string DefaultAlpineRelease = "latest-stable";
+
+    /// <summary>
+    /// The Alpine branch the host sysroot is built from.
+    /// </summary>
+    /// <remarks>
+    /// A branch rather than <c>latest-stable</c>, which is a moving target: it became v3.24 on
+    /// 2026-06-13, so a rebuild of a sysroot last built on 2026-04-10 silently crossed a release —
+    /// ncurses 6.5 to 6.6, a system Python 3.14 arriving beside the static 3.12 the builder compiles,
+    /// and PAM pulled in as a dependency. v3.23 is what <c>latest-stable</c> meant on that date.
+    /// <para>
+    /// This pins the release and not the packages in it. Alpine patches a stable branch, so a build
+    /// from v3.23 today still picks up what has landed there since — xz 5.8.2 became 5.8.3, for one.
+    /// What it stops is the jump to the next release. <c>--release</c> overrides it.
+    /// </para>
+    /// <para>
+    /// The Debian side needs no equivalent: <see cref="SysrootArchConfigs"/> already names a suite
+    /// (<c>bookworm</c>) rather than a moving alias.
+    /// </para>
+    /// </remarks>
+    private const string DefaultAlpineRelease = "v3.23";
 
     private static readonly string[] HostPackages =
     [
@@ -255,7 +274,7 @@ public class AlpineSysrootBuilder
         var parentDir = Path.GetDirectoryName((string)_workDir)!;
 
         var exitCode = await ProcessRunner.Run(
-            "tar", $"-cJf \"{_outputPath}\" -C \"{parentDir}\" \"{workDirName}\"");
+            "tar", $"{ReproducibleTar.Flags} -cJf \"{_outputPath}\" -C \"{parentDir}\" \"{workDirName}\"");
         if (exitCode != 0)
         {
             Log.Error($"ERROR: Failed to create archive '{_outputPath}'");

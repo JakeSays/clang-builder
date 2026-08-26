@@ -400,7 +400,7 @@ public class DebianSysrootBuilder
 
         var sysrootDirName = _sysrootDir.FileName;
         var exitCode = await ProcessRunner.Run(
-            "tar", $"-cJf \"{tarPath}\" -C \"{_workDir}\" \"{sysrootDirName}\"");
+            "tar", $"{ReproducibleTar.Flags} -cJf \"{tarPath}\" -C \"{_workDir}\" \"{sysrootDirName}\"");
         if (exitCode != 0)
         {
             Log.Error($"ERROR: Failed to create {tarName}");
