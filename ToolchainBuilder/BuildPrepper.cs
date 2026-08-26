@@ -69,8 +69,9 @@ public abstract class BuildPrepper
         Directory.CreateDirectory(srcDir);
 
         Log.Info($"Downloading LLVM {llvmVersion} source...");
-        var tarballUrl = $"https://github.com/llvm/llvm-project/releases/download/llvmorg-{llvmVersion}/llvm-project-{llvmVersion}.src.tar.xz";
-        var tarballPath = WorkDir / $"llvm-project-{llvmVersion}.src.tar.xz";
+        //https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-23.1.0.tar.gz
+        var tarballUrl = $"https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-{llvmVersion}.tar.gz";
+        var tarballPath = WorkDir / $"llvmorg-{llvmVersion}.tar.xz";
 
         await Downloader!.DownloadFile(tarballUrl, tarballPath, "LLVM Source");
         if (!await FileUtils.ExtractArchive(tarballPath, srcDir, "LLVM Source"))
