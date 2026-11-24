@@ -144,11 +144,6 @@ public class LlvmCrossBuilder
             }
         }
 
-        if (_config.RunTests)
-        {
-            Log.Warning("TODO: Implement and run toolchain tests based on tools/tests/toolchain/run-tests.sh");
-        }
-
         Log.Info(LogColor.Green, "All build steps completed successfully.");
         return true;
     }

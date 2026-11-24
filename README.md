@@ -39,7 +39,7 @@ The build tooling is split into three .NET 10 projects under the solution file `
 
 ```bash
 sudo apt-get install -y cmake ninja-build git python3 curl xz-utils patchelf \
-  qemu-user qemu-user-static
+  qemu-user
 ```
 
 QEMU is used to run cross-compiled test binaries on the build machine.
@@ -74,6 +74,7 @@ All prebuilts (bootstrap compiler and cross sysroots) are read from `--prebuilts
 | `--output-dir <dir>` | Where to write the final package |
 | `--jobs <N>` | Parallel build jobs |
 | `--run-tests` | Run toolchain tests before packaging |
+| `--run-tests-only` | Run toolchain tests on the install already in the work dir, without building |
 | `--package` | Package the toolchain after a successful build |
 | `--keep-work-dir` | Do not delete the work directory after the build |
 | `--force-reconfigure` | Re-run CMake configure even if already configured |

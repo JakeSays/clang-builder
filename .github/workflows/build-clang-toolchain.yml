@@ -51,7 +51,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build git python3 curl xz-utils patchelf rsync \
-            qemu-user qemu-user-static
+            qemu-user
 
       - name: Build stage1 host
         if: steps.stage1-cache.outputs.cache-hit != 'true'
@@ -117,7 +117,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build git python3 curl xz-utils patchelf rsync \
-            qemu-user qemu-user-static
+            qemu-user
 
       - name: Restore stage1 install
         uses: actions/download-artifact@v4
@@ -153,8 +153,8 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
-  # Phase 3: Merge per-lane diffs onto stage1, package the toolchain, and
-  # publish a GitHub release.
+  # Phase 3: Merge per-lane diffs onto stage1, test and package the toolchain,
+  # and publish a GitHub release.
   #
   # NOTE: liblldb.so is intentionally NOT built here yet — Python support for
   # liblldb (needed by CLion) is pending. To re-enable, add a
@@ -164,7 +164,7 @@ jobs:
   merge-and-final:
     needs: matrix-build
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
 
     permissions:
       contents: write   # required to create GitHub releases
@@ -180,7 +180,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build git python3 curl xz-utils patchelf rsync \
-            qemu-user qemu-user-static
+            qemu-user
 
       - name: Download all lane artifacts
         uses: actions/download-artifact@v4
@@ -197,6 +197,18 @@ jobs:
           for lane in "$RUNNER_TEMP/artifacts"/install-lane-*; do
             tar -xpzf "$lane/install-lane.tar.gz" -C "$INSTALL_DIR/"
           done
+
+      - name: Run toolchain tests
+        run: |
+          "$GITHUB_WORKSPACE/prebuilts/clang-builder" build \
+            --llvm-version "$LLVM_VERSION" \
+            --all \
+            --prebuilts-dir "$GITHUB_WORKSPACE/prebuilts" \
+            --work-dir "$RUNNER_TEMP/toolchain-work" \
+            --output-dir "$GITHUB_WORKSPACE" \
+            --jobs "$JOBS" \
+            --run-tests-only \
+            --keep-work-dir
 
       - name: Package toolchain
         run: |

@@ -31,27 +31,9 @@ public class MainToolchainBuildPrepper : BuildPrepper
             return false;
         }
 
-        // Check for QEMU if tests are enabled, as they are needed for cross-arch testing.
-        if (Config.RunTests)
+        if (Config.RunTests && !CheckQemuDependencies())
         {
-            Log.Info("Checking for QEMU user-mode binaries for cross-arch testing...");
-
-            if (Config.Architectures.IsSet(TargetArch.Armv7) && !CheckQemuDependency("qemu-armhf"))
-            {
-                return false;
-            }
-            if (Config.Architectures.IsSet(TargetArch.Aarch64) && !CheckQemuDependency("qemu-aarch64"))
-            {
-                return false;
-            }
-            if (Config.Architectures.IsSet(TargetArch.Riscv64) && !CheckQemuDependency("qemu-riscv64"))
-            {
-                return false;
-            }
-            if (Config.Architectures.IsSet(TargetArch.X86) && !CheckQemuDependency("qemu-i386"))
-            {
-                return false;
-            }
+            return false;
         }
 
         if (!await ExpandPrebuilts())
@@ -105,6 +87,19 @@ public class MainToolchainBuildPrepper : BuildPrepper
 
         Log.Info(LogColor.Green, "Build preparation complete.");
         return true;
+    }
+
+    /// <summary>Checks for QEMU and unpacks the target sysroots, for --run-tests-only on an install built in another job.</summary>
+    public async Task<bool> PrepareTests()
+    {
+        Log.Info("--- Preparing Test Environment ---");
+
+        if (!CheckQemuDependencies())
+        {
+            return false;
+        }
+
+        return await PrebuiltsUtilities.ExpandPrebuilts(PrebuiltsSourceDir, PrebuiltsOutputDir, Downloader!, GetTargetSysrootTypes().ToArray());
     }
 
     /// <summary>
@@ -435,33 +430,40 @@ endif()
         {
             typesToExpand.Add(PrebuiltType.GlibcHostSysroot);
         }
+        typesToExpand.AddRange(GetTargetSysrootTypes());
+
+        return await PrebuiltsUtilities.ExpandPrebuilts(PrebuiltsSourceDir, PrebuiltsOutputDir, Downloader!, typesToExpand.ToArray());
+    }
+
+    private List<PrebuiltType> GetTargetSysrootTypes()
+    {
+        var types = new List<PrebuiltType>();
         if (Config.Architectures.IsSet(TargetArch.X64))
         {
-            typesToExpand.Add(PrebuiltType.X64GlibcSysroot);
-            typesToExpand.Add(PrebuiltType.X64MuslSysroot);
+            types.Add(PrebuiltType.X64GlibcSysroot);
+            types.Add(PrebuiltType.X64MuslSysroot);
         }
         if (Config.Architectures.IsSet(TargetArch.Armv7))
         {
-            typesToExpand.Add(PrebuiltType.Armv7GlibcSysroot);
-            typesToExpand.Add(PrebuiltType.Armv7MuslSysroot);
+            types.Add(PrebuiltType.Armv7GlibcSysroot);
+            types.Add(PrebuiltType.Armv7MuslSysroot);
         }
         if (Config.Architectures.IsSet(TargetArch.Aarch64))
         {
-            typesToExpand.Add(PrebuiltType.Aarch64GlibcSysroot);
-            typesToExpand.Add(PrebuiltType.Aarch64MuslSysroot);
+            types.Add(PrebuiltType.Aarch64GlibcSysroot);
+            types.Add(PrebuiltType.Aarch64MuslSysroot);
         }
         if (Config.Architectures.IsSet(TargetArch.Riscv64))
         {
-            typesToExpand.Add(PrebuiltType.Riscv64GlibcSysroot);
-            typesToExpand.Add(PrebuiltType.Riscv64MuslSysroot);
+            types.Add(PrebuiltType.Riscv64GlibcSysroot);
+            types.Add(PrebuiltType.Riscv64MuslSysroot);
         }
         if (Config.Architectures.IsSet(TargetArch.X86))
         {
-            typesToExpand.Add(PrebuiltType.X86GlibcSysroot);
-            typesToExpand.Add(PrebuiltType.X86MuslSysroot);
+            types.Add(PrebuiltType.X86GlibcSysroot);
+            types.Add(PrebuiltType.X86MuslSysroot);
         }
-
-        return await PrebuiltsUtilities.ExpandPrebuilts(PrebuiltsSourceDir, PrebuiltsOutputDir, Downloader!, typesToExpand.ToArray());
+        return types;
     }
 
     private async Task PatchBootstrapClang(FilePath bootstrapDir)
@@ -489,6 +491,29 @@ endif()
         }
     }
 
+    private bool CheckQemuDependencies()
+    {
+        Log.Info("Checking for QEMU user-mode binaries for cross-arch testing...");
+
+        if (Config.Architectures.IsSet(TargetArch.Armv7) && !CheckQemuDependency("qemu-armhf"))
+        {
+            return false;
+        }
+        if (Config.Architectures.IsSet(TargetArch.Aarch64) && !CheckQemuDependency("qemu-aarch64"))
+        {
+            return false;
+        }
+        if (Config.Architectures.IsSet(TargetArch.Riscv64) && !CheckQemuDependency("qemu-riscv64"))
+        {
+            return false;
+        }
+        if (Config.Architectures.IsSet(TargetArch.X86) && !CheckQemuDependency("qemu-i386"))
+        {
+            return false;
+        }
+        return true;
+    }
+
     private bool CheckQemuDependency(string qemuBinary)
     {
         if (FileUtils.ExistsOnPath(qemuBinary))
@@ -496,9 +521,8 @@ endif()
             return true;
         }
 
-        Log.Warning($"WARNING: '{qemuBinary}' not found on PATH. Cross-architecture runtime tests for this target will be skipped.");
+        Log.Error($"ERROR: '{qemuBinary}' not found on PATH.");
         return false;
-
     }
 
     private PythonInfo? DetectPython()

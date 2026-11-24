@@ -31,16 +31,22 @@ public static class BuildMainToolchainCommand
             {
                 Log.Warning("--run-tests-only specified. Skipping build and packaging.");
 
-                if (config.InstallDir.Exists)
+                if (!config.InstallDir.Exists)
                 {
-                    return await RunAllTests(config, config.TestArch)
-                        ? 0
-                        : 1;
+                    Log.Error($"ERROR: --run-tests-only requires a completed build in '{config.WorkDir}'.");
+                    Log.Error($"Missing '{config.InstallDir}'.");
+                    return 1;
                 }
 
-                Log.Error($"ERROR: --run-tests-only requires a completed build in '{config.WorkDir}'.");
-                Log.Error($"Missing '{config.InstallDir}' or '{config.BootstrapClangDir}'.");
-                return 1;
+                if (!await prepper.PrepareTests())
+                {
+                    Log.Error("Test preparation failed. Aborting.");
+                    return 1;
+                }
+
+                return await RunAllTests(config, config.TestArch)
+                    ? 0
+                    : 1;
             }
 
             if (config.PackageOnly)

@@ -341,6 +341,8 @@ public class MainToolchainTester
             return;
         }
 
+        _totalRuntimeTests++;
+        _failures++;
         Log.Error($"      FAIL: runtime test for {buildLabel} (QEMU not found for {target.ArchName}).");
     }
 }
