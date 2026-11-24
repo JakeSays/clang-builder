@@ -1,6 +1,7 @@
 // Test: C++20 coroutines
 #include <coroutine>
 #include <cassert>
+#include <exception>
 #include <optional>
 #include <vector>
 
