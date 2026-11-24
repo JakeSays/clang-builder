@@ -132,7 +132,7 @@ public class Stage1HostBuilder
             .Define("Python3_FIND_STRATEGY", "LOCATION")
             .Define("Python3_INCLUDE_DIR", pythonInfo.IncludeDir)
             .Define("Python3_LIBRARY", pythonInfo.LibraryPath)
-            .Define("Python3_EXECUTABLE", "python3") // A reasonable default for the build host
+            .Define("Python3_EXECUTABLE", pythonInfo.HostExecutable)
             .CmakeOn("LLVM_LIBSTDCXX_MIN")
             .CmakeOn("LLVM_LIBSTDCXX_SOFT_ERROR")
             .CmakeOn("LLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN")

@@ -38,11 +38,18 @@ The build tooling is split into three .NET 10 projects under the solution file `
 ### Prerequisites
 
 ```bash
-sudo apt-get install -y cmake ninja-build git python3 curl xz-utils patchelf \
-  qemu-user
+sudo apt-get install -y build-essential ca-certificates cmake curl git git-lfs \
+  libncurses-dev libxml2-dev ninja-build patchelf python3 python3-dev qemu-user \
+  rsync swig xz-utils zlib1g-dev zstd
 ```
 
 QEMU is used to run cross-compiled test binaries on the build machine.
+
+LLDB embeds the host sysroot's static Python 3.12, so the build needs a `python3.12` interpreter on PATH.
+CMake's FindPython3 finds the sysroot's library only when the interpreter's version matches it.
+
+`build-env/Dockerfile` defines the image the GitHub workflow runs in, with every host tool pinned. Running a
+build inside that image reproduces CI.
 
 ### Run the toolchain build
 

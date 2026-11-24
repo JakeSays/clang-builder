@@ -18,6 +18,12 @@ env:
   LLVM_VERSION: ${{ inputs.llvm_version }}
   JOBS: 4
 
+# Every job runs in the build-environment image (build-env/Dockerfile), pinned by digest, so the
+# host tools change only when the digest here does. Pulling it from GHCR needs packages: read.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   # ---------------------------------------------------------------------------
   # Phase 1: Build stage1 host clang/lld/lldb (musl, fully static).
@@ -26,6 +32,11 @@ jobs:
   host-stage:
     runs-on: ubuntu-latest
     timeout-minutes: 350
+    container:
+      image: ghcr.io/jakesays/clang-builder-env@sha256:91a236373e201ec5c62e154710460504110679720f348283d2da424e80bd8d8d
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout
@@ -34,24 +45,18 @@ jobs:
           # LFS pull only needed for prebuilts; skip it on stage1 cache hit.
           lfs: false
 
+      # The key includes the image digest, so a new build environment never reuses a stage1 built
+      # in the old one.
       - name: Restore stage1 cache
         id: stage1-cache
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/install-stage1.tar.gz
-          key: stage1-${{ inputs.llvm_version }}
+          path: ci-artifacts/install-stage1.tar.gz
+          key: stage1-${{ inputs.llvm_version }}-env-91a236373e20
 
       - name: Pull LFS prebuilts
         if: steps.stage1-cache.outputs.cache-hit != 'true'
         run: git lfs pull
-
-      - name: Install host dependencies
-        if: steps.stage1-cache.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build git python3 curl xz-utils patchelf rsync \
-            qemu-user
 
       - name: Build stage1 host
         if: steps.stage1-cache.outputs.cache-hit != 'true'
@@ -69,15 +74,16 @@ jobs:
       - name: Pack stage1 install
         if: steps.stage1-cache.outputs.cache-hit != 'true'
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/ci-artifacts"
           cd "$RUNNER_TEMP/toolchain-work"
-          tar --owner=0 --group=0 -czf "$RUNNER_TEMP/install-stage1.tar.gz" \
+          tar --owner=0 --group=0 -czf "$GITHUB_WORKSPACE/ci-artifacts/install-stage1.tar.gz" \
             "clang-${LLVM_VERSION}-linux-x86_64"
 
       - name: Upload stage1 install
         uses: actions/upload-artifact@v4
         with:
           name: install-stage1
-          path: ${{ runner.temp }}/install-stage1.tar.gz
+          path: ci-artifacts/install-stage1.tar.gz
           retention-days: 1
           if-no-files-found: error
 
@@ -90,6 +96,11 @@ jobs:
     needs: host-stage
     runs-on: ubuntu-latest
     timeout-minutes: 350
+    container:
+      image: ghcr.io/jakesays/clang-builder-env@sha256:91a236373e201ec5c62e154710460504110679720f348283d2da424e80bd8d8d
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     strategy:
       fail-fast: false
@@ -112,23 +123,16 @@ jobs:
         with:
           lfs: true
 
-      - name: Install host dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build git python3 curl xz-utils patchelf rsync \
-            qemu-user
-
       - name: Restore stage1 install
         uses: actions/download-artifact@v4
         with:
           name: install-stage1
-          path: ${{ runner.temp }}/stage1-artifact
+          path: ci-artifacts/stage1
 
       - name: Unpack stage1 install
         run: |
           mkdir -p "$RUNNER_TEMP/toolchain-work"
-          tar -xpzf "$RUNNER_TEMP/stage1-artifact/install-stage1.tar.gz" \
+          tar -xpzf "$GITHUB_WORKSPACE/ci-artifacts/stage1/install-stage1.tar.gz" \
             -C "$RUNNER_TEMP/toolchain-work"
 
       - name: Build lane (${{ matrix.arch }}-${{ matrix.libc }})
@@ -141,14 +145,14 @@ jobs:
             --output-dir    "$GITHUB_WORKSPACE" \
             --jobs          "$JOBS" \
             --build-target  "${{ matrix.targets }}" \
-            --lane-diff     "$RUNNER_TEMP/install-lane.tar.gz" \
+            --lane-diff     "$GITHUB_WORKSPACE/ci-artifacts/install-lane.tar.gz" \
             --keep-work-dir
 
       - name: Upload lane diff
         uses: actions/upload-artifact@v4
         with:
           name: install-lane-${{ matrix.arch }}-${{ matrix.libc }}
-          path: ${{ runner.temp }}/install-lane.tar.gz
+          path: ci-artifacts/install-lane.tar.gz
           retention-days: 1
           if-no-files-found: error
 
@@ -165,9 +169,15 @@ jobs:
     needs: matrix-build
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    container:
+      image: ghcr.io/jakesays/clang-builder-env@sha256:91a236373e201ec5c62e154710460504110679720f348283d2da424e80bd8d8d
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     permissions:
       contents: write   # required to create GitHub releases
+      packages: read
 
     steps:
       - name: Checkout
@@ -175,26 +185,19 @@ jobs:
         with:
           lfs: true
 
-      - name: Install host dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build git python3 curl xz-utils patchelf rsync \
-            qemu-user
-
       - name: Download all lane artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: install-*
-          path: ${{ runner.temp }}/artifacts
+          path: ci-artifacts
 
       - name: Assemble merged install
         run: |
           INSTALL_DIR="$RUNNER_TEMP/toolchain-work/clang-${LLVM_VERSION}-linux-x86_64"
           mkdir -p "$RUNNER_TEMP/toolchain-work"
-          tar -xpzf "$RUNNER_TEMP/artifacts/install-stage1/install-stage1.tar.gz" \
+          tar -xpzf "$GITHUB_WORKSPACE/ci-artifacts/install-stage1/install-stage1.tar.gz" \
             -C "$RUNNER_TEMP/toolchain-work"
-          for lane in "$RUNNER_TEMP/artifacts"/install-lane-*; do
+          for lane in "$GITHUB_WORKSPACE/ci-artifacts"/install-lane-*; do
             tar -xpzf "$lane/install-lane.tar.gz" -C "$INSTALL_DIR/"
           done
 

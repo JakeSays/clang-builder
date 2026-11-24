@@ -47,8 +47,6 @@ public class MainToolchainBuildPrepper : BuildPrepper
         var pythonInfo = DetectPython();
         if (pythonInfo == null)
         {
-            Log.Error("ERROR: Python is required for LLDB, but no static Python library was found in the host sysroot.");
-            Log.Error("The build cannot continue without Python support for LLDB.");
             return false;
         }
         Config.Python = pythonInfo;
@@ -139,7 +137,7 @@ public class MainToolchainBuildPrepper : BuildPrepper
     {
         Log.Info("Generating custom CMake modules...");
 
-        if (StampFile.IsPresent(Config.CmakeModulesDir, "modules"))
+        if (StampFile.IsPresent(Config.CmakeModulesDir, "modules-v2"))
         {
             Log.Info("  Cmake files already generated.");
             return;
@@ -228,6 +226,13 @@ mark_as_advanced(LIBXML2_INCLUDE_DIR LIBXML2_LIBRARY LIBXML2_STATIC_LIBRARY)
 # static library deps that our bundled libpython3.12.a extension modules need.
 include("${CMAKE_ROOT}/Modules/FindPython3.cmake")
 
+# Without the Development component the dependencies below are skipped, LLDB's CMake still enables
+# Python with a bare libpython, and the build fails at the lldb link. FindPython3 finds Development
+# only when the interpreter's version matches the library's.
+if(CMAKE_SYSROOT AND "Development" IN_LIST Python3_FIND_COMPONENTS AND NOT Python3_Development_FOUND)
+  message(FATAL_ERROR "Python3 Development not found (interpreter ${Python3_EXECUTABLE} ${Python3_VERSION}, library ${Python3_LIBRARY})")
+endif()
+
 if(Python3_FOUND AND CMAKE_SYSROOT)
   set(_py_extra_libs "${CMAKE_SYSROOT}/usr/lib/libssl.a" "${CMAKE_SYSROOT}/usr/lib/libcrypto.a" "${CMAKE_SYSROOT}/usr/lib/libuuid.a" "${CMAKE_SYSROOT}/usr/lib/libsqlite3.a" "${CMAKE_SYSROOT}/usr/lib/libbz2.a" "${CMAKE_SYSROOT}/usr/lib/liblzma.a" "${CMAKE_SYSROOT}/usr/lib/libreadline.a" "${CMAKE_SYSROOT}/usr/lib/libncurses.a" "${CMAKE_SYSROOT}/usr/lib/libffi.a" "${CMAKE_SYSROOT}/usr/lib/libexpat.a" "${CMAKE_SYSROOT}/usr/lib/libmpdec.a" "${CMAKE_SYSROOT}/usr/lib/libgdbm_compat.a" "${CMAKE_SYSROOT}/usr/lib/libgdbm.a" "${CMAKE_SYSROOT}/usr/lib/libz.a")
   foreach(_lib IN LISTS _py_extra_libs)
@@ -245,7 +250,7 @@ endif()
         File.WriteAllText(findPython3Path, findPython3Content);
         Log.Info($"  Generated: {findPython3Path}");
 
-        StampFile.Create(Config.CmakeModulesDir, "modules");
+        StampFile.Create(Config.CmakeModulesDir, "modules-v2");
     }
 
     private bool PatchLldbCmakeFiles()
@@ -530,31 +535,44 @@ endif()
         var includeBaseDir = Config.HostSysroot / "usr" / "include";
         var libBaseDir = Config.HostSysroot / "usr" / "lib";
 
-        if (!Directory.Exists(includeBaseDir) || !Directory.Exists(libBaseDir))
+        if (Directory.Exists(includeBaseDir) && Directory.Exists(libBaseDir))
         {
-            return null;
-        }
-
-        // Order by name descending to prefer newer versions (e.g., python3.12 over python3.11)
-        foreach (var dir in Directory.EnumerateDirectories(includeBaseDir, "python*").OrderByDescending(p => p))
-        {
-            var dirName = Path.GetFileName(dir); // e.g., "python3.12"
-            var match = Regex.Match(dirName, @"python(\d+\.\d+)");
-            if (!match.Success)
+            // Order by name descending to prefer newer versions (e.g., python3.12 over python3.11)
+            foreach (var dir in Directory.EnumerateDirectories(includeBaseDir, "python*").OrderByDescending(p => p))
             {
-                continue;
-            }
+                // e.g., "python3.12"
+                var dirName = Path.GetFileName(dir);
+                var match = Regex.Match(dirName, @"python(\d+\.\d+)");
+                if (!match.Success)
+                {
+                    continue;
+                }
 
-            var version = match.Groups[1].Value; // e.g., "3.12"
-            var libPath = libBaseDir / $"libpython{version}.a";
+                // e.g., "3.12"
+                var version = match.Groups[1].Value;
+                var libPath = libBaseDir / $"libpython{version}.a";
+                if (!libPath.Exists)
+                {
+                    continue;
+                }
 
-            if (libPath.Exists)
-            {
                 Log.Info(LogColor.Green, $"Detected Python {version} in sysroot.");
-                return new PythonInfo(version, dir, libPath);
+
+                // FindPython3 finds the Development component only when the interpreter's version
+                // matches the library's; without it the static dependencies are not linked.
+                var hostExecutable = FileUtils.FindExecutable($"python{version}");
+                if (hostExecutable == null)
+                {
+                    Log.Error($"ERROR: 'python{version}' not found on PATH.");
+                    return null;
+                }
+
+                return new PythonInfo(version, dir, libPath, hostExecutable.Value);
             }
         }
 
+        Log.Error("ERROR: Python is required for LLDB, but no static Python library was found in the host sysroot.");
+        Log.Error("The build cannot continue without Python support for LLDB.");
         return null;
     }
 }

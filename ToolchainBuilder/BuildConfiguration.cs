@@ -3,8 +3,6 @@ using Std.BuildTools.Common;
 
 namespace Std.BuildTools.Clang;
 
-public record PythonInfo(string Version, string IncludeDir, string LibraryPath);
-
 public class BuildConfiguration
 {
     private FilePath? _srcDir;
