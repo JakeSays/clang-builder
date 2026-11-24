@@ -1,0 +1,38 @@
+name: Build Environment Image
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'build-env/**'
+      - '.github/workflows/build-env-image.yml'
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Build and push
+        run: |
+          IMAGE="ghcr.io/jakesays/clang-builder-env:${GITHUB_SHA}"
+          docker build --tag "$IMAGE" build-env
+          docker push "$IMAGE"
+          DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE")
+          echo "Pushed ${DIGEST}"
+          echo "Pushed \`${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
